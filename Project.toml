@@ -1,3 +1,8 @@
+name = "JuliaDispatch"
+uuid = "950d5269-0285-40e9-88e8-a9e3baf01f8c"
+version = "0.2"
+authors = ["Caspar William Bruenech <c.w.bruenech@pm.me>"]
+
 [deps]
 Mmap = "a63ad114-7e13-5084-954f-fe012c677804"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"

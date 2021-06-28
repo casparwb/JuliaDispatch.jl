@@ -20,7 +20,7 @@ Kwargs:
 
 Returns:
 ------------
-    - Dictionairy of snapshot
+    - Dictionary of snapshot
 """
 function snapshot(iout=0; run="", data="..\\data", verbose = 0)
 

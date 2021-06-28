@@ -1,5 +1,6 @@
 import Conda
-ffreader = pyimport("scipy.io").FortranFile
+
+#ffreader = pyimport("scipy.io").FortranFile
 
 function aux(;id = 1, io = 0, rundir = "", datadir = "../data", file=nothing,
             verbose = 0)
@@ -19,6 +20,7 @@ function aux(;id = 1, io = 0, rundir = "", datadir = "../data", file=nothing,
 end
 
 function aux_read(auxDict; verbose=0)
+    ffreader = pyimport_conda("scipy.io", "scipy").FortranFile
     ff = ffreader(auxDict["filename"], "r")
     auxDict["version"], auxDict["id"] = ff.read_ints()
 

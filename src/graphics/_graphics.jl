@@ -6,6 +6,7 @@ default(:size, (1200, 800))
 
 include("../select/_select.jl")
 include("utils.jl")
+include("../select/buffers.jl")
 
 
 function plot_values_along(snap::Dict, pt=[0.5, 0.5, 0.5]; kw...)
@@ -209,7 +210,7 @@ end
 #
 # end
 
-function Sliceplot(d1, d2, data::Array{T, 2} where T;
+function sliceplot(d1, d2, data::Array{T, 2} where T;
                   x = nothing, y = nothing, z = nothing, kw...)
     """
     Sliceplot wrapper for arrays
@@ -317,7 +318,7 @@ function Sliceplot(d1, d2, data::Array{T, 2} where T;
 
 end
 
-function Sliceplot(snap::Dict,
+function sliceplot(snap::Dict,
                   ;x = nothing, y = nothing, z = nothing, unigrid=true,
                   kw...)
     """
@@ -401,9 +402,9 @@ function Sliceplot(snap::Dict,
         d1, d2, data = resample(d1, d2, data, newdims)
     end
 
-    if kv[:label] == nothing
-        kv[:label] = get_unit(snap, iv)
-    end
+    # if isnothing(kv[:label], nothing)
+    #     kv[:label] = get_unit(snap, iv)
+    # end
 
     hm = nothing
     if string(kv[:style]) == "streamplot"
@@ -438,13 +439,13 @@ function Sliceplot(snap::Dict,
     end
 
 
-    if kv[:xlabel] != nothing
+    if kv[:xlabel] !== nothing
         xlabel = kv[:xlabel]
     else
         xlabel = planeDirs[1][2]
     end
 
-    if kv[:ylabel] != nothing
+    if kv[:ylabel] !== nothing
         ylabel = kv[:ylabel]
     else
         ylabel = planeDirs[2][2]
@@ -459,7 +460,7 @@ function Sliceplot(snap::Dict,
 end
 
 
-function Streamplot(d1, d2, data)
+function streamplot_(d1, d2, data)
     fig = figure(figsize=(12, 8))
     ax = fig.gca()
 
@@ -577,7 +578,7 @@ function anim_pane(snap; ax=1, nframes=10, unigrid=true, kw...)
     gif(anim, "testgif2.gif", fps=20)
 end
 
-function Volume(snap::Dict; iv = 0, kw...)
+function volume(snap::Dict; iv = 0, kw...)
     """ Plot a 3D volume of the given quantity iv """
 
     kw = Dict(kw)
@@ -610,9 +611,9 @@ function Volume(snap::Dict; iv = 0, kw...)
     z = range(start[3], stop[3], length=nz)
 
 
-    kv[:cmap] != nothing ? cmap = kv[:cmap] : cmap = :viridis
+    kv[:cmap] !== nothing ? cmap = kv[:cmap] : cmap = :viridis
     scene = Makie.volume(x, y, z, data, colormap=cmap, isovalue=1)
-    kv[:title] != nothing ? Makie.title(scene, kv[:title]) : nothing
+    kv[:title] !== nothing ? Makie.title(scene, kv[:title]) : nothing
 
     # if kv[:grids]
     #     for patch in snap["patches"]
@@ -623,7 +624,18 @@ function Volume(snap::Dict; iv = 0, kw...)
     scene
 end
 
-function outline(e)
-    d1 = [e[1], e[1], e[2], e[2], e[1]]
-    d2 = [e[3], e[4], e[4], e[3], e[3]]
+function anim_plane(;data="", x = nothing, y = nothing, z = nothing, iv=0, tspan=nothing, unigrid=true)
+
+    nsnapshots = get_n_snapshots(data=data)
+
+    anim = @animate for i = 1:5:nsnapshots-1
+        snap = snapshot(i, data=data)
+        isnothing(snap) && continue
+        plne = unigrid_plane(snap, x=x, y=y, z=z, iv=iv)
+        heatmap(plne)
+    end
+
+    gif(anim, "test.mp4")
+    
+
 end

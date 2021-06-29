@@ -12,12 +12,12 @@ function aux(;id = 1, io = 0, rundir = "", datadir = "../data", file=nothing,
         auxDict["filename"] = datadir*"/"*rundir*"/$(@sprintf("%05d/%05d", io, id)).aux"
     end
     if isfile(file)
-        aux_read(auxDict, verbose=verbose)
+        aux_read!(auxDict, verbose=verbose)
     end
     return auxDict
 end
 
-function aux_read(auxDict; verbose=0)
+function aux_read!(auxDict; verbose=0)
 
     file = FortranFile(auxDict["filename"])
     auxDict["version"], auxDict["id"] = read(file, (Int32, 2))
@@ -25,7 +25,7 @@ function aux_read(auxDict; verbose=0)
     vars = Dict()
     while true
         try
-            name = read(file, FString{2})
+            name = String(read(file, FString{2}))
 
             verbose > 2 && println(" name: $name")
 

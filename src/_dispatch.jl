@@ -439,7 +439,7 @@ function _patch(id, patch_dict, snap, rank, verbose=0)
     end
 
     """ add a comprehensive set of variable keys """
-    patch["aux"] = Dict()
+    #patch["aux"] = Dict()
     patch["data"] = Dict()
     patch["keys"] = Dict()
     patch["keys"]["letters"] = collect(keys(snap["idx"]))
@@ -901,7 +901,7 @@ function plane(patch; x = nothing, y = nothing, z = nothing, iv = 0,
         ui = patch["ui"]  # upper inner
     else #all || !patch["guard_zones"]
         li = ones(Int, 3) # using Static??
-        ui = patch["gn"]
+        ui = patch["n"]
     end
 
     if x !== nothing
@@ -964,13 +964,12 @@ Returns:
 """
 function box(patch; iv = 0, all=false, verbose = 0)
 
-
-    if patch["guard_zones"] && !all
+    if patch["guard_zones"]# && !all
         li = patch["li"]  # lower inner
         ui = patch["ui"]  # upper inner
-    elseif all || !patch["guard_zones"]
-        li = ones(Int, 3)
-        ui = patch["gn"]
+    else #all || !patch["guard_zones"]
+        li = ones(Int, 3) # using Static??
+        ui = patch["n"]
     end
 
     f = patch["var"](iv)[li[1]:ui[1], li[2]:ui[2], li[3]:ui[3]]

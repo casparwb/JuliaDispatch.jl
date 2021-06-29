@@ -805,7 +805,7 @@ function _var(patch, filed, snap; verbose = 0, copy = nothing)
             v = expression_parser(patch, iv) # NOT FINISHED TO-DO
         end
 
-        if v != nothing
+        if v !== nothing
             """ A value v was produced, so post_process """
             return post_process(v, copy=copy, all = all, i4 = i4)
         else
@@ -896,15 +896,15 @@ function plane(patch; x = nothing, y = nothing, z = nothing, iv = 0,
 
 
 
-    if patch["guard_zones"] && !all
+    if patch["guard_zones"]# && !all
         li = patch["li"]  # lower inner
         ui = patch["ui"]  # upper inner
-    elseif all || !patch["guard_zones"]
+    else #all || !patch["guard_zones"]
         li = ones(Int, 3) # using Static??
         ui = patch["gn"]
     end
 
-    if x != nothing
+    if x !== nothing
         p = (x - patch["x"][1])/patch["ds"][1]
         i = Int(round(p))
         i = min(i, ui[1]-1)
@@ -913,7 +913,7 @@ function plane(patch; x = nothing, y = nothing, z = nothing, iv = 0,
         f = patch["var"](iv)[i, li[2]:ui[2], li[3]:ui[3]]*(1.0 - p) +
             patch["var"](iv)[i+1, li[2]:ui[2], li[3]:ui[3]]*p
 
-    elseif y != nothing
+    elseif y !== nothing
         p = (y - patch["y"][1])/patch["ds"][2]
         i = Int(round(p))
         i = min(i, ui[2]-1)
@@ -921,7 +921,7 @@ function plane(patch; x = nothing, y = nothing, z = nothing, iv = 0,
         f = transpose(patch["var"](iv)[li[1]:ui[1], i  , li[3]:ui[3]]*(1.0-p) +
                       patch["var"](iv)[li[1]:ui[1], i+1, li[3]:ui[3]]*p)
 
-    elseif z != nothing
+    elseif z !== nothing
         p = (z - patch["z"][1])/patch["ds"][3]
         i = Int(round(p))
         i = min(i, ui[3]-1)

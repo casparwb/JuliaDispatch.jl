@@ -1,6 +1,6 @@
 using PyCall, Printf, Mmap, StaticArrays
 
-include("_aux.jl")
+include("_aux2.jl")
 include("_dispatch_grid.jl")
 
 """

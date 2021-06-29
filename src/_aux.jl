@@ -1,5 +1,4 @@
 import Conda
-
 #ffreader = pyimport("scipy.io").FortranFile
 
 function aux(;id = 1, io = 0, rundir = "", datadir = "../data", file=nothing,
@@ -51,7 +50,7 @@ function aux_read(auxDict; verbose=0)
             else
                 v = ff.read_ints("<i4")
             end
-            v = reshape(v, reverse(shp)...)
+            v = reshape(v, shp...)
             if ndims(v) == 2
                 v = transpose(v)
             else

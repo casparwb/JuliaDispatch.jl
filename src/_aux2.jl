@@ -55,7 +55,6 @@ function aux_read(auxDict; verbose=0)
             vars[name] = Dict("type" => tpe, "name" => name, "rank" => rank,
                                 "shape" => shp, "v" => v)
         catch e
-            throw(e)
             break
         end
 

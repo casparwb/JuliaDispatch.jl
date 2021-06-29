@@ -40,8 +40,6 @@ function aux_read(auxDict; verbose=0)
             len = prod(shp)
             tpe = read(file, FString{2})
 
-            shp = ff.read_ints()
-
             rank = length(shp)
 
             verbose > 2 && println("type: $tpe")

@@ -1,7 +1,7 @@
 using Plots, LaTeXStrings
 using PyPlot: streamplot, imshow, figure
 import Makie
-using JuliaDispatch.Utils, JuliaDispatch.Buffers
+using JuliaDispatch.Utils, JuliaDispatch.Buffers, JuliaDispatch.Select
 gr()
 default(:size, (1200, 800))
 

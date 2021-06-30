@@ -1,3 +1,7 @@
+module Interpolations
+
+export interpolate
+
 function interpolate_3d(patch, data; x = 0.5, y = 0.5, z=0.5, verbose = 0)
     """
     Interpolate 3-dimensional data on to a point [x, y, z]
@@ -166,3 +170,5 @@ function interpolate(patch; iv = 0, x = nothing, y = nothing, z = nothing,
 
     Log ? exp.(data) : data
 end
+
+end #module

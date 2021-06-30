@@ -1,12 +1,14 @@
 using Plots, LaTeXStrings
 using PyPlot: streamplot, imshow, figure
 import Makie
+using JuliaDispatch.Utils, JuliaDispatch.Buffers
 gr()
 default(:size, (1200, 800))
 
-include("../select/_select.jl")
-include("utils.jl")
-include("../select/buffers.jl")
+
+#include("../select/_select.jl")
+#include("utils.jl")
+#include("../select/buffers.jl")
 
 
 function plot_values_along(snap::Dict, pt=[0.5, 0.5, 0.5]; kw...)

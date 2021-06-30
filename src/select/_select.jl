@@ -1,6 +1,7 @@
 module Select
 
-    export values_along, values_in, indices_and_weights, patches_along, patch_at, is_inside, corner_indices, patches_in
+    export values_along, values_in, indices_and_weights, patches_along, 
+           patch_at, is_inside, corner_indices, patches_in, box, plane
 
     using StaticArrays
     function values_along(pp, point=[0.5, 0.5, 0.5];
@@ -262,5 +263,112 @@ module Select
             return i[1], i[1]+n[1], i[2], i[2]+n[2], i[3], i[3]+n[3]
         end
     end
+
+    """
+    plane(patch::Dict; x::Float, y::Float, z::Float,
+        iv::Union{String, Int}, all::Bool, verbose::Int)
+
+    Return patch data of quantity iv at a slice x/y/z.
+
+    Arguments:
+    --------------
+        - patch: Dictionairy, a patch object from a snapshot
+
+    Kwargs:
+    -------------
+        - x, y, z: Float, position at which to slice, default nothing
+        - iv: String/Int, what quantity to extract, default 0
+        - all: Bool, whether to include guard zones, default false
+
+    Returns:
+    -------------
+        - 2d array of Float32.
+    """
+    function plane(patch; x = nothing, y = nothing, z = nothing, iv = 0,
+                        verbose = 0, all=false)
+
+
+
+        if patch["guard_zones"]# && !all
+            li = patch["li"]  # lower inner
+            ui = patch["ui"]  # upper inner
+        else #all || !patch["guard_zones"]
+            li = ones(Int, 3) # using Static??
+            ui = patch["n"]
+        end
+
+        if x !== nothing
+            p = (x - patch["x"][1])/patch["ds"][1]
+            i = Int(round(p))
+            i = min(i, ui[1]-1)
+            p -= i
+
+            f = patch["var"](iv)[i, li[2]:ui[2], li[3]:ui[3]]*(1.0 - p) +
+                patch["var"](iv)[i+1, li[2]:ui[2], li[3]:ui[3]]*p
+
+        elseif y !== nothing
+            p = (y - patch["y"][1])/patch["ds"][2]
+            i = Int(round(p))
+            i = min(i, ui[2]-1)
+            p = p - i
+            f = transpose(patch["var"](iv)[li[1]:ui[1], i  , li[3]:ui[3]]*(1.0-p) +
+                        patch["var"](iv)[li[1]:ui[1], i+1, li[3]:ui[3]]*p)
+
+        elseif z !== nothing
+            p = (z - patch["z"][1])/patch["ds"][3]
+            i = Int(round(p))
+            i = min(i, ui[3]-1)
+            p = p - i
+            if i == 0
+                f = patch["var"](iv)[li[1]:ui[1], li[2]:ui[2], end]*(1.0 - p) +
+                    patch["var"](iv)[li[1]:ui[1], li[2]:ui[2], i+1]*p
+            else
+                f = patch["var"](iv)[li[1]:ui[1], li[2]:ui[2], i]*(1.0 - p) +
+                    patch["var"](iv)[li[1]:ui[1], li[2]:ui[2], i+1]*p
+            end
+        else
+            throw(ArgumentError("plane: must give one x, y, or z-value."))
+        end
+
+        Bool(verbose) ? println("plane: $i, p = $i $p") : nothing
+
+        return f
+
+    end
+
+
+    """
+    box(patch::Dict; iv::Union{String, Int}, all::Bool, verbose::Int)
+
+    Return volume of data of quantity iv from patch.
+
+    Arguments:
+    ------------
+        - patch: Dictionairy, a patch object from a snapshot
+
+    Kwargs:
+    --------------
+        - iv: String/Int, what quantity to extract, default 0
+        - all: Bool, whether to include guard zones, default false
+
+    Returns:
+    ------------
+        - 3d array of Float32.
+    """
+    function box(patch; iv = 0, all=false, verbose = 0)
+
+        if patch["guard_zones"]# && !all
+            li = patch["li"]  # lower inner
+            ui = patch["ui"]  # upper inner
+        else #all || !patch["guard_zones"]
+            li = ones(Int, 3) # using Static??
+            ui = patch["n"]
+        end
+
+        f = patch["var"](iv)[li[1]:ui[1], li[2]:ui[2], li[3]:ui[3]]
+
+        return f
+    end
+
 
 end #module

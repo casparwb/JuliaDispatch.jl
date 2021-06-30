@@ -19,4 +19,5 @@ module JuliaDispatch
     include("select/buffers.jl")
     include("Dispatch.jl")
     include("Graphics.jl")
+    include("Analysis.jl")
 end

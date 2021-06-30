@@ -1,3 +1,6 @@
-using Test, JuliaDispatch
+using JuliaDispatch
+using Test
 
-## TODO
+@testset "JuliaDispatch.jl" begin
+    include("TestSliceplot.jl")
+end

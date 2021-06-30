@@ -1,0 +1,47 @@
+!----------------- I/O paramters -----------------------------------------------------
+&io_params         verbose=0 do_trace=f do_debug=f do_output=t
+                   guard_zones=f nml_version=1 /
+&out_params        end_time=1.001 out_time=0.005 print_time=0 /
+
+!----------------- Initial condition parameter ---------------------------------------
+! --- XY plane ---
+&patch_params      nt=5 n=32,32,1 no_mans_land=t  do_check_nan=t grace=0.1 /
+&cartesian_params  size=1,1,0.17 dims=6,6,1 mpi_dims=2,2,1 origin=0,0,0 periodic=t,t,t/
+&IC_params         idirect=3 !b0=0.0
+/
+
+! --- XZ plane ---
+!&patch_params      n=32,1,32 do_check_nan=t grace=0.1 /
+!&cartesian_params  size=1,0.5,1 dims=6,1,6 origin=0,0,0 periodic=t,t,t/
+!&IC_params         idirect=2 !b0=0.0
+/
+! --- YZ plane ---
+!&patch_params      n=1,32,32 do_check_nan=t grace=0.1 /
+!&cartesian_params  size=0.5,1,1 dims=1,6,6 origin=0,0,0 periodic=t,t,t/
+!&IC_params         idirect=1 !b0=0.0
+/
+
+!----------------- Refinemennt parameters --------------------------------------------
+&refine_params     on=f levelmax=12 levelmin=1 verbose=3 check_interval=2 /
+!&initial_refine_params on=f n_refine=0,2,0 ratio=2.0 center=0.0,0.5,0.0 extent=0.0,0.2,0.0 /
+
+!----------------- Solver paramters --------------------------------------------------
+&aux_params        verbose=0 select='tt','pg','rkap','src','qout' /
+&eos_params        gamma=1.6666666666667 /
+&divb_clean_params on=f divb_iter=4 divb_cleaner=0 /
+&ramses_params     slope_type=3.5 /
+&non_ideal_params  mhd_Ohm=f eta_Ohm=0.1 mhd_AD=f /
+
+!                     cs    pa   ofd  mas  kap  eta
+&stagger_params    nu=0.10, 1.0, 1.0, 0.0, 1.0, 1.0 courant=0.10 do_maxwell=t /
+
+&bifrost_params    loginterpolation=t ca_max=3e2 courant=0.2 max_r=3 symmetric_e=f
+!                        Ca    U    Uv   d     e      E
+!                        nu1   nu2  nu3  nu_d  nu_ee  eta3
+                   nu=  0.03 , 0.1, 0.1, 0.05,  0.30,  0.3 /
+                  !nu=  0.03 , 0.3, 0.1, 0.00,  0.05,  1.0 /
+                  !nu=  0.05 , 0.1, 0.2, 0.05,  0.05,  0.8 /
+
+!----------------- Framework paramters -----------------------------------------------
+&dispatcher_params /
+&timestep_params   /

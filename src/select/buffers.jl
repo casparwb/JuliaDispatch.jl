@@ -1,5 +1,8 @@
-include("../interpolations.jl")
-include("_select.jl")
+module Buffers
+
+export init_buffer, amr_plane, amr_volume, unigrid_plane, unigrid_volume, resample
+
+using JuliaDispatch.Select, JuliaDispatch.Interpolations
 import Interpolations
 const Itp = Interpolations
 
@@ -451,3 +454,5 @@ function resample(xs, ys, zs, data::Array{T, 3} where T, newdims)
 
     return nxs, nzs, nzs, new_data
 end
+
+end #module 

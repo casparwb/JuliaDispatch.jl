@@ -3,6 +3,7 @@ using PyPlot: streamplot, imshow, figure
 import Makie
 using JuliaDispatch.Utils, JuliaDispatch.Buffers
 using JuliaDispatch.Select: patches_in
+using JuliaDispatch.Dispatch: snapshot
 gr()
 default(:size, (1200, 800))
 
@@ -627,18 +628,20 @@ function volume(snap::Dict; iv = 0, kw...)
     scene
 end
 
-function anim_plane(;data="", x = nothing, y = nothing, z = nothing, iv=0, tspan=nothing, unigrid=true)
+function anim_plane(;data="", x = nothing, y = nothing, z = nothing, iv=0, 
+                    tspan=nothing, unigrid=true, step=1)
 
     nsnapshots = get_n_snapshots(data=data)
 
-    anim = @animate for i = 1:5:nsnapshots-1
+    anim = @animate for i = 1:nsnapshots-1
         snap = snapshot(i, data=data)
         isnothing(snap) && continue
         plne = unigrid_plane(snap, x=x, y=y, z=z, iv=iv)
         heatmap(plne)
-    end
+    end every step
 
-    gif(anim, "test.mp4")
+    gif(anim, "test.gif")
     
 
 end
+

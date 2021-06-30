@@ -39,7 +39,7 @@ function split(expressions::Expressions, rhs)
 
     words = Array{String}[]
 
-    add(w) = (w != "" && w !in words) ? push!(words, w) : nothing
+    add(w) = (w != "" && !occursin(w, words)) ? push!(words, w) : nothing
     word = ""
     for c in rhs
         if c in expressions.ops

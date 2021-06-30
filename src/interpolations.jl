@@ -90,23 +90,23 @@ function interpolate_2d(patch::Dict, data::AbstractArray; ax = 1, p1 = 0.5, p2 =
 end
 
 """
-interpolate(patch::Dict; iv::Union{Int, String}, x::Float, y::Float, z::Float,
-            Log::Bool, all::Bool)
+    interpolate(patch::Dict; iv::Union{Int, String}, x::Float, y::Float, z::Float,
+                Log::Bool, all::Bool)
 
 Find the plane values of a patch at a given slice x/y/z by interpolating
 neighbouring planes.
 
-Arguments:
-    - patch: Dict, patch object from a snapshot
+# Arguments:
+- `patch::Dict`, patch object from a snapshot
 
-Kwargs:
-    - iv: Int, String, quantity to get data of, default 0
-    - x, y, z: Float, position at which to slice, default nothing
-    - Log: Bool, whether to log the data, default false
-    - all: Bool, whether to include guard zones
+# Kwargs:
+- `iv::Union{Int, String}`: quantity to get data of, default `0`
+- `(x, y, z)::Float`: position at which to slice, default `nothing`
+- `Log::Bool`: whether to log the data, default `false`
+- `all::Bool`: whether to include guard zones, default `false`
 
-Returns:
-    - 2d array of float32, interpolated values at position x/y/z
+# Returns:
+- 2d array of float32, interpolated values at position x/y/z
 
 """
 function interpolate(patch; iv = 0, x = nothing, y = nothing, z = nothing,
@@ -117,7 +117,7 @@ function interpolate(patch; iv = 0, x = nothing, y = nothing, z = nothing,
         ui = patch["ui"]  # upper inner
     else
         li = ones(Int, 3) # using Static??
-        ui = patch["n"] - 1
+        ui = patch["n"]
     end
 
     xyz = [x, y, z]

@@ -849,27 +849,6 @@ function map_var(patch, iv)
     return jv
 end
 
-""" Returns which patches are in a given plane """
-function patches_in(snap; x = nothing, y = nothing, z = nothing)
-    patches = snap["patches"]
-
-    if x != nothing
-        patches = [p for p in patches
-                   if (x >= p["extent"][3, 1] && x < p["extent"][3, 2])]
-    end
-
-    if y != nothing
-        patches = [p for p in patches
-                   if (y >= p["extent"][1, 1] && y < p["extent"][1, 2])]
-    end
-
-    if z != nothing
-        patches = [p for p in patches
-                   if (z >= p["extent"][2, 1] && z < p["extent"][2, 2])]
-    end
-
-    return patches
-end
 
 """
 plane(patch::Dict; x::Float, y::Float, z::Float,

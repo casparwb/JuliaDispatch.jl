@@ -1,6 +1,6 @@
 module Select
 
-    export values_along, values_in, indices_and_weights, patches_along, patch_at, is_inside, corner_indices
+    export values_along, values_in, indices_and_weights, patches_along, patch_at, is_inside, corner_indices, patches_in
 
     using StaticArrays
     function values_along(pp, point=[0.5, 0.5, 0.5];
@@ -30,6 +30,28 @@ module Select
 
         return ss, ff
 
+    end
+
+    """ Returns which patches are in a given plane """
+    function patches_in(snap; x = nothing, y = nothing, z = nothing)
+        patches = snap["patches"]
+
+        if x != nothing
+            patches = [p for p in patches
+                    if (x >= p["extent"][3, 1] && x < p["extent"][3, 2])]
+        end
+
+        if y != nothing
+            patches = [p for p in patches
+                    if (y >= p["extent"][1, 1] && y < p["extent"][1, 2])]
+        end
+
+        if z != nothing
+            patches = [p for p in patches
+                    if (z >= p["extent"][2, 1] && z < p["extent"][2, 2])]
+        end
+
+        return patches
     end
 
     function values_in(p, point = [0.5,0.5,0.5];

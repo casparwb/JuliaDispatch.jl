@@ -1,4 +1,7 @@
-using PyCall, Printf, Mmap, StaticArrays
+using PyCall, Printf, Mmap, StaticArrays, JLD
+using FStrings
+
+using JuliaDispatch.DispatchUtils
 
 include("_aux2.jl")
 include("_dispatch_grid.jl")
@@ -6,31 +9,28 @@ include("_dispatch_grid.jl")
 """
     snapshot(iotu::Int; run::String, data::String, verbose::Int)
 
-Parses patches and produces a `Dictionairy` with all properties of snapshot
+Parses patches and produces a dictionary with all properties of snapshot
 `iout`.
 
-Arguments:
-------------
-    - iout: Int, snapshot ID
+#Arguments:
+- `iout::Int`, snapshot ID
 
-Kwargs:
-------------
-    - data: String, path to data (snapshots), default "..\\data"
-    - run: String, path to snapshots folders relative to data, default ""
+#Kwargs:
+- `data::String`, path to data (snapshots), default `"..\\data"`
+- `run::String`, path to snapshots folders relative to data, default `""`
 
-Returns:
-------------
-    - Dictionary of snapshot
+#Returns:
+- Dictionary of snapshot
 """
-function snapshot(iout=0; run="", data="..\\data", verbose = 0)
+function snapshot(iout=0; run="", data="../data", verbose = 0)
 
     ### wrapper for f90nml reader ###
-    read_nml(file) = pyimport("f90nml").read(file)
+    #read_nml(file) = pyimport("f90nml").read(file)
 
     ### find data- and rundirs ###
     # rundir = _dir(data, run)
     statedict = Dict{String, Any}()
-    rundir = joinpath(pwd(), data)
+    rundir = _dir(data, run)
     if !isdir(rundir)
         println("directory $(rundir) does not exist")
         return nothing
@@ -104,7 +104,7 @@ function snapshot(iout=0; run="", data="..\\data", verbose = 0)
 
 
     ### Check if snapshots.dat ###
-    verbose > 1 ? println("checking if there is a snapshots.dat") : nothing
+    verbose > 1 && println("checking if there is a snapshots.dat")
     try
         statedict["datafile"] = _file(rundir, "snapshots.dat")
         statedict["datafiled"] = open(statedict["datafile"], "rb")
@@ -117,40 +117,91 @@ function snapshot(iout=0; run="", data="..\\data", verbose = 0)
     ### lists are already arrays ###
 
     """ add patches as a list of dicts """
-    if verbose > 1 println("add patches as a list of dicts") end
+    verbose > 1 && println("add patches as a list of dicts") 
 
-    statedict["patches"] = Array{Dict, 1}([])
+    statedict["patches"] = Dict[]#Array{Dict, 1}([])
     files = [f for f in readdir(datadir) if endswith(f, "_patches.nml")]
 
     # ignore left-over *_patches.nml from other runs
-    save = []
-    rank = nothing
-    for i = 1:statedict["mpi_size"]
-        f = files[i]
-        # split name to get rank number
-        rank = parse(Int, split(f, "_")[2])
+    # save = []
+    # rank = nothing
+    # for i = 1:statedict["mpi_size"]
+    #     f = files[i]
+    #     # split name to get rank number
+    #     rank = parse(Int, split(f, "_")[2])
 
-        # add parameter groups from data/run/NNNNN/*patches.nml
-        file = _file(datadir, f)
-        if verbose > 1 println("parsing $file") end
+    #     # add parameter groups from data/run/NNNNN/*patches.nml
+    #     file = _file(datadir, f)
+    #     if verbose > 1 println("parsing $file") end
 
-        patch_dict = parse_patches(statedict, file)
-        push!(save, patch_dict)
+    #     #patch_dict = parse_patches(statedict, file)
+    #     patch_dict = read_patch_metadata(iout, run, data, statedict["mpi_size"], verbose=verbose)
+    #     push!(save, patch_dict)
+    # end
+
+    if !haskey(statedict, "mpi_size")
+        statedict["mpi_size"] = 1
+    end
+    patch_dict = read_patch_metadata(iout, run, data, statedict["mpi_size"], verbose=verbose)
+    if isnothing(patch_dict)
+        println("could not find patch metadata")
+        return nothing
     end
 
+    ids = sort(collect(keys(patch_dict)))
+    for id in ids
+        #id = parse(Int, id)
+        p = _patch2(parse(Int, id), patch_dict[id], statedict)
+        _add_axes(statedict, p)
+        push!(statedict["patches"], p)
+        
+        if verbose == 2 && haskey(p, "idx")
+            data = p["var"]("d")
+            dmax = maximum(data)
+            println("id: $(p["id"])   pos: $(p["position"]) $dmax")
+        elseif verbose == 3
+            println("id: $(p["id"])")
+            for iv in range(p["nv"])
+                data = p["var"](iv)
+                vmin = parse(Float64, minimum(data))
+                vmax = parse(Float64, maximum(data))
+                var = p["idx"]["vars"][iv]
+                #println(f"{var:>5} :  min = {vmin:10.3e}    max = {vmax:10.3e}")
+            end # do
+        elseif verbose == 4
+            attributes(p)
+        end # if
+    end # for
 
-    for patch_dict in save
-        ids = sort(collect(keys(patch_dict)))
-        for id in ids
-            p = _patch(id, patch_dict[id], statedict, rank)
-            _add_axes(statedict, p)
-            push!(statedict["patches"], p)
-        end
-    end
+    verbose == 1 && println("    added $(length(statedict[string(:patches)])) patches")
+    # for patch_dict in save
+    #     ids = sort(collect(keys(patch_dict)))
+    #     for id in ids
+    #         p = _patch(id, patch_dict[id], statedict, rank)
+    #         _add_axes(statedict, p)
+    #         push!(statedict["patches"], p)
+    #     end
+    # end
 
     return statedict
 
 end
+
+""" 
+    attributes(patch)
+
+Pretty-print patch attributes
+"""
+function attributes(patch)
+    id = patch["id"]
+    println("id: $id")
+
+    for (k, v) in patch
+        if k != "data"
+            #print(f"{k:>12}: {v}")
+        end # if 
+    end # for
+end # function
 
 """ Add axis values to patches """
 function _add_axes(snap, patch)
@@ -184,6 +235,34 @@ function _add_axes(snap, patch)
         patch["geometric_factors"] = GeometricFactors(patch)
     end
 end
+
+"""
+    read_nml(file; verbose=0)
+
+Read a cached namelist file if it exists, else create it.
+"""
+function read_nml(file; verbose=0)
+    jldfile = replace(file, ".nml" => ".jld")
+
+    if ispath(jldfile) && ctime(jldfile) > ctime(file)
+        verbose > 0 && println("reading file $jldfile")
+        nml_list = JLD.load(jldfile)
+    else
+        verbose > 0 && println("reading file $file")
+        f90nml(file) = pyimport("f90nml").read(file)
+        nml_list = f90nml(file)
+        verbose > -1 && println("caching metadata to $jldfile")
+        try
+            JLD.save(jldfile, nml_list)
+        catch
+            nothing
+        end # try
+    end # if
+
+    return nml_list
+end # function
+
+
 
 function parse_patches(snap::Dict, file="../data/00000/rank_00000_patches.nml")
 
@@ -308,14 +387,14 @@ end
 
 function _dir(dir, subdir)
 
-    #endswith(dir, "/") ? p = dir*subdir : dir*"/"*subdir
-    if endswith(dir, "\\")
-        p = dir*subdir
+    p = endswith(dir, '/') ? dir*subdir : dir*'/'*subdir
+    if endswith(p, '/')
+        return p
     else
-        p = dir*"\\"*subdir
+        return p*'/'
     end
-    endswith(p, "\\") ? p : p*"\\"
 end
+
 
 function _file(dir, file)
     endswith(dir, "\\") ? p = dir*file : dir*"\\"*file
@@ -352,6 +431,140 @@ function _add_nml_to(dict::Dict, subdict::Dict)
         dict[key] = value
     end
 end
+
+
+function _patch2(id, patch_dict, snap; memmap=1, verbose=0)
+    patch = Dict()
+    patch["id"] = id
+    patch["memmap"] = memmap
+
+    # add general attributes from snapshot.nml
+    for (k, v) in snap["dict"]
+        patch[k] = v
+    end 
+
+    # add per-patch attributes from parsing
+    for (k, v) in patch_dict
+        patch[k] = v
+    end 
+
+    # if a short variant of the patch metadata does not has ds, compute it
+    if !haskey(patch_dict, "ds")
+        patch["ds"] = patch["size"]/patch["n"]
+    end 
+
+    if !patch["guard_zones"]
+        patch["li"][:] .= 1
+        patch["ui"][:] .= patch["n"]
+    end 
+
+    # add idx attribute
+    if haskey(snap, "idx")
+        patch["idx"] = snap["idx"]
+        patch["idx"]["h"] = _h(patch)
+    end
+
+    if haskey(patch, "size") && haskey(patch, "n")
+        if !haskey(patch, "ds")
+            patch["dsx"] = patch["size"]/patch["n"]
+        end # if
+    end # if 
+
+    if haskey(patch, "size") && haskey(patch, "position")#"size" in keys(patch) && "position" in keys(patch)
+        llc = patch["position"] - patch["size"]/2.0
+        urc = patch["position"] + patch["size"]/2.0
+
+        patch["extent"] = reshape([llc[2] urc[2] llc[3] urc[3]
+                                    llc[3] urc[3] llc[1] urc[1]
+                                    llc[1] urc[1] llc[2] urc[2]], 3, 4)
+        # patch["extent"] = SMatrix{3, 4, Float16}(llc[2], urc[2], llc[3], urc[3],
+        #                                         llc[3], urc[3], llc[1], urc[1],
+        #                                         llc[1], urc[1], llc[2], urc[2])
+        patch["llc_cart"] = llc
+
+    end
+
+    if !haskey(patch, "units")
+        if haskey(snap, "units")
+            patch["units"] = snap["units"]
+            if !haskey(patch, "u")
+                patch["units"]["u"] = patch["units"]["l"]/patch["units"]["t"]
+            end
+            if !haskey(patch, "d")
+                patch["units"]["d"] = patch["units"]["m"]/patch["units"]["l"]^3
+            end
+            if !haskey(patch, "p")
+                patch["units"]["p"] = patch["units"]["d"]/patch["units"]["u"]^2
+            end
+            if !haskey(patch, "e")
+                patch["units"]["e"] = patch["units"]["m"]/patch["units"]["u"]^2
+            end
+            if !haskey(patch, "b")
+                patch["units"]["b"] = patch["units"]["u"]*sqrt(4π*patch["units"]["d"])
+            end
+        end
+    end
+
+    # modify `mesh_type` from integer to string for readability
+    if haskey(patch, "mesh_type")
+        if patch["mesh_type"] == 1
+            patch["mesh_type"] = "Cartesian"
+        elseif patch["mesh_type"] == 2
+            patch["mesh_type"] = "spherical"
+        elseif patch["mesh_type"] == 3
+            patch["mesh_type"] = "cylindrical"
+        end
+    end
+    if strip(snap["io"]["method"]) == "legacy"
+        patch["filename"] = snap["rundir"]*
+                        "/$(@sprintf("%05d/%05d", patch["iout"], patch["id"])).dat"
+        patch["var"] = _var(patch, patch["filename"], snap)
+    elseif strip(snap["io"]["method"]) == "background"
+        patch["filename"] = snap["rundir"]*"/$(@sprintf("/%05d/snapshot_%05d.dat", patch["iout"], patch["rank"])).dat"#"/{:05d}/snapshot_{:05d}.dat".format(self.iout,self.rank)
+        patch["var"] = _var(patch, patch["filename"], snap, verbose=verbose)#_var(self,self.filename,snap,verbose=verbose)
+    else
+        patch["var"] = _var(patch, snap["datafiled"], snap)
+    end
+
+    """ add a comprehensive set of variable keys """
+    patch["aux"] = Dict()
+    patch["data"] = Dict()
+    patch["keys"] = Dict()
+    patch["keys"]["letters"] = collect(keys(snap["idx"]))
+    patch["keys"]["numbers"] = collect(values(snap["idx"]))
+    patch["keys"]["known"] = ["d","lnd","logd","ux","uy","uz","u1","u2","u3",
+                                "ee","E","T","eth","ekin"]
+
+
+    # attach an aux filename, if one exists for this task
+    auxfile = "$(@sprintf("%05d", id)).aux"
+
+    auxfile = _pathjoin(snap["datadir"], auxfile)
+    patch["auxfile"] = auxfile
+
+    # read the information from the aux file and add as attribute
+    patch["aux"] = aux(id = id, rundir=snap["rundir"], datadir=snap["datadir"],
+                        io = snap["iout"], file = auxfile, verbose=verbose)
+    patch["keys"]["aux"] = collect(keys(patch["aux"]["vars"]))
+
+    # for patch id = 1, add items with les than 100 elements to snapshot.aux
+    if id == 1
+        for (k, v) in patch["aux"]["vars"]
+            if prod(v["shape"]) < 100
+                snap["aux"]["name"] = v["v"]
+            end # if 
+        end # for
+    end # if 
+
+    """ Collect all keys in a single array """
+    all = []
+    for key_list in values(patch["keys"])
+        append!(all, key_list)
+    end
+    patch["all_keys"] = all
+
+    return patch
+end # function
 
 
 function _patch(id, patch_dict, snap, rank, verbose=0)
@@ -429,17 +642,19 @@ function _patch(id, patch_dict, snap, rank, verbose=0)
         end
     end
 
-
     if strip(snap["io"]["method"]) == "legacy"
         patch["filename"] = snap["rundir"]*
                         "/$(@sprintf("%05d/%05d", patch["iout"], patch["id"])).dat"
         patch["var"] = _var(patch, patch["filename"], snap)
+    elseif strip(snap["io"]["method"]) == "background"
+        patch["filename"] = snap["rundir"]*"/$(@sprintf("/%05d/snapshot_%05d.dat", patch["iout"], patch["rank"])).dat"#"/{:05d}/snapshot_{:05d}.dat".format(self.iout,self.rank)
+        self.var=_var(self,self.filename,snap,verbose=verbose)
     else
         patch["var"] = _var(patch, snap["datafiled"], snap)
     end
 
     """ add a comprehensive set of variable keys """
-    #patch["aux"] = Dict()
+    patch["aux"] = Dict()
     patch["data"] = Dict()
     patch["keys"] = Dict()
     patch["keys"]["letters"] = collect(keys(snap["idx"]))
@@ -488,20 +703,23 @@ function _var(patch, filed, snap; verbose = 0, copy = nothing)
     # verbose == 5 ? println("id: $(patch["id"])") : nothing
 
     for iv = 0:patch["nv"] - 1
-        if patch["ioformat"] == 5
-            offset = patch["ip"] + iv*patch["ntotal"]
-            offset += patch["iout"]*patch["ntotal"]*patch["nv"]
-
-        elseif (patch["ioformat"] >= 6 && patch["ioformat"] < 10) || patch["ioformat"] == 15
-            offset = iv + patch["ip"]*patch["nv"]
-            offset += patch["iout"]*patch["ntotal"]*patch["nv"]
-
-        elseif patch["ioformat"] >= 10
-            offset = patch["ip"] + iv*patch["ntotal"]
-            offset += patch["iout"]*patch["ntotal"]*patch["nv"]
-
+        if strip(snap["io"]["method"]) == "background"
+            offset = iv + (patch["record"]-1)*patch["nv"]
         else
-            offset = iv
+            if patch["ioformat"] == 5
+                offset = patch["ip"] + iv*patch["ntotal"]
+                offset += patch["iout"]*patch["ntotal"]*patch["nv"]
+
+            elseif (patch["ioformat"] >= 6 && patch["ioformat"] < 10) || patch["ioformat"] == 15
+                offset = iv + patch["ip"]*patch["nv"]
+                offset += patch["iout"]*patch["ntotal"]*patch["nv"]
+
+            elseif patch["ioformat"] >= 10
+                offset = patch["ip"] + iv*patch["ntotal"]
+                offset += patch["iout"]*patch["ntotal"]*patch["nv"]
+            else
+                offset = iv
+            end
         end
         offset *= bytes
         push!(patch["offset"], offset)
@@ -545,48 +763,48 @@ function _var(patch, filed, snap; verbose = 0, copy = nothing)
     end # end dnup
 
     function xdn(f)
-        if patch["kind"][1:4] == "zeus" || patch["kind"][1:7] == "stagger"
-            return dnup(f, 1, 0)
+        if patch["kind"][1:4] == "zeus" || patch["kind"][1:7] == "stagger" || patch["kind"][1:7] == "ramses"
+            return dnup(f, 1, 1)
         else
             return f
         end
     end # end xdn
 
     function ydn(f)
-        if patch["kind"][1:4] == "zeus" || patch["kind"][1:7] == "stagger"
-            return dnup(f, 1, 1)
-        else
-            return f
-        end
-    end
-
-    function zdn(f)
-        if patch["kind"][1:4] == "zeus" || patch["kind"][1:7] == "stagger"
+        if patch["kind"][1:4] == "zeus" || patch["kind"][1:7] == "stagger" || patch["kind"][1:7] == "ramses"
             return dnup(f, 1, 2)
         else
             return f
         end
     end
 
+    function zdn(f)
+        if patch["kind"][1:4] == "zeus" || patch["kind"][1:7] == "stagger" || patch["kind"][1:7] == "ramses"
+            return dnup(f, 1, 3)
+        else
+            return f
+        end
+    end
+
     function xup(f)
-        if patch["kind"][1:4] == "zeus" || patch["kind"][1:7] == "stagger"
-            return dnup(f, -1 ,0)
+        if patch["kind"][1:4] == "zeus" || patch["kind"][1:7] == "stagger" || patch["kind"][1:7] == "ramses"
+            return dnup(f, -1, 1)
         else
             return f
         end
     end
 
     function yup(f)
-        if patch["kind"][1:4] == "zeus" || patch["kind"][1:7] == "stagger"
-            return dnup(f, -1 ,1)
+        if patch["kind"][1:4] == "zeus" || patch["kind"][1:7] == "stagger" || patch["kind"][1:7] == "ramses"
+            return dnup(f, -1, 2)
         else
             return f
         end
     end
 
     function zup(f)
-        if patch["kind"][1:4] == "zeus" || patch["kind"][1:7] == "stagger"
-            return dnup(f, -1 ,2)
+        if patch["kind"][1:4] == "zeus" || patch["kind"][1:7] == "stagger" || patch["kind"][1:7] == "ramses"
+            return dnup(f, -1, 3)
         else
             return f
         end
@@ -604,9 +822,9 @@ function _var(patch, filed, snap; verbose = 0, copy = nothing)
             """ check if v.rank does not match the normal patch size.
             If so, compute the guard zone size, and adjust """
 
-            rank = min(length(vshape), length(patch["ng"]))
+            rank = min(length(vshape), length(patch["gn"]))
 
-            if vshape[1:rank] != tuple(patch["gn"][1:rank])
+            if vshape[1:rank+1] != tuple(patch["gn"][1:rank+1]...)
                 gn = collect(vshape)
                 ng2 = Base.copy(gn)
                 for i = 1:length(patch["gn"])
@@ -624,9 +842,9 @@ function _var(patch, filed, snap; verbose = 0, copy = nothing)
 
         else
             rank = min(length(vshape), length(patch["gn"]))
-            if vshape[1:rank] != tuple(patch["n"][1:rank])
+            if vshape[1:rank+1] != tuple(patch["n"][1:rank+1]...)
                 gn = Array(vshape)
-                ng2 = copy(gn)
+                ng2 = Base.copy(gn)
 
                 for i = 1:length(patch["gn"])
                     ng2[i] = gn[i] - patch["n"][i]
@@ -644,6 +862,9 @@ function _var(patch, filed, snap; verbose = 0, copy = nothing)
     end # end internal()
 
     function post_process(v; copy = false, all = false, i4 = 1)
+        if copy
+            v = Base.copy(v)
+        end
         if ndims(v) == 4
             v = v[:, :, :, i4]
         end
@@ -651,17 +872,18 @@ function _var(patch, filed, snap; verbose = 0, copy = nothing)
         return internal(v, all = all)
     end
 
-    function var(iv; all = false, copy = nothing, i4 = 1, verbose = 0)
-        """
-        Evaluate arguments of varuious forms, including expressions.
+    """
+        var(iv; all = false, copy = nothing, i4 = 1, verbose = 0)
 
-        If the data is in spherical or cylindrical coords., then it is the angular
-        momentum in the snapshot, and thus the division by metric factors.
-        """
+    Evaluate arguments of various forms, including expressions.
+
+    If the data is in spherical or cylindrical coords., then it is the angular
+    momentum in the snapshot, and thus the division by metric factors.
+    """
+    function var(iv; all = false, copy = nothing, i4 = 1, verbose = 0)
         if typeof(iv) == Int
             @assert iv in patch["keys"]["numbers"] "variable index unknown"
         end
-
 
         # determine data representation
 
@@ -847,4 +1069,10 @@ function map_var(patch, iv)
     end
 
     return jv
+end
+
+function _pathjoin(dir, file)
+    path = joinpath(dir, file)
+    path = replace(path, "\\" => "/")
+    return path
 end

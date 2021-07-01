@@ -39,6 +39,7 @@ end
 function get_unit(snap, iv)#, system=nothing)
 
     # if system == nothing
+    if !haskey(snap, "units") return nothing end
     system = strip(snap["units"]["system"])
     # end
 

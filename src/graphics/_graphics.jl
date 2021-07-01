@@ -2,7 +2,7 @@ using Plots, LaTeXStrings
 using PyPlot: streamplot, imshow, figure
 import Makie
 using JuliaDispatch.Utils, JuliaDispatch.Buffers
-using JuliaDispatch.Select: patches_in
+using JuliaDispatch.Select
 using JuliaDispatch.Dispatch: snapshot
 gr()
 default(:size, (1200, 800))

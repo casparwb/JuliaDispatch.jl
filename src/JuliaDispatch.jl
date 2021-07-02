@@ -13,6 +13,7 @@
 # end # end module
 
 module JuliaDispatch
+    using JLD
     include("dispatch_utils.jl")
     include("graphics/utils.jl")
     include("select/_select.jl")

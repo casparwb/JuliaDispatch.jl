@@ -10,13 +10,22 @@ function _kw_extract(kw, dict)
     # return kw, dict
 end
 
+function _dir(dir, subdir)
+
+    p = endswith(dir, '/') ? dir*subdir : dir*'/'*subdir
+    if endswith(p, '/')
+        return p
+    else
+        return p*'/'
+    end
+end
 
 """
 Returns the total number of snapshots in the given data folder
 """
 function get_n_snapshots(;run="", data="../data")
 
-    datadir = joinpath(run, data)
+    datadir = _dir(data, run)
     nsnaps = 0
     for dir in readdir(datadir)
         if isdir(datadir*dir)

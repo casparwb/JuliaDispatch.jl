@@ -297,37 +297,45 @@ module Select
             ui = patch["n"]
         end
 
-        if x !== nothing
+        #@assert !all(isnothing.((x, y, z))) "plane: must give one x, y, or z-value."
+
+        variv = patch["var"](iv)
+        if !isnothing(x)
             p = (x - patch["x"][1])/patch["ds"][1]
-            i = Int(round(p))
+            i = round(Int, p)
             i = min(i, ui[1]-1)
             p -= i
 
-            f = patch["var"](iv)[i, li[2]:ui[2], li[3]:ui[3]]*(1.0 - p) +
-                patch["var"](iv)[i+1, li[2]:ui[2], li[3]:ui[3]]*p
+            f = variv[i, li[2]:ui[2], li[3]:ui[3]]*(1.0 - p) +
+                variv[i+1, li[2]:ui[2], li[3]:ui[3]]*p
 
-        elseif y !== nothing
+        elseif !isnothing(y)
             p = (y - patch["y"][1])/patch["ds"][2]
-            i = Int(round(p))
+            i = round(Int, p)
             i = min(i, ui[2]-1)
             p = p - i
-            f = transpose(patch["var"](iv)[li[1]:ui[1], i  , li[3]:ui[3]]*(1.0-p) +
-                        patch["var"](iv)[li[1]:ui[1], i+1, li[3]:ui[3]]*p)
+            f = transpose(variv[li[1]:ui[1], i  , li[3]:ui[3]]*(1.0-p) +
+                          variv[li[1]:ui[1], i+1, li[3]:ui[3]]*p)
 
-        elseif z !== nothing
+        elseif !isnothing(z)
             p = (z - patch["z"][1])/patch["ds"][3]
-            i = Int(round(p))
+            i = round(Int, p)
             i = min(i, ui[3]-1)
             p = p - i
+            # if i == 0
+            #     f = variv[li[1]:ui[1], li[2]:ui[2], end]*(1.0 - p) +
+            #         variv[li[1]:ui[1], li[2]:ui[2], i+1]*p
+            # else
+            #     f = variv[li[1]:ui[1], li[2]:ui[2], i]*(1.0 - p) +
+            #         variv[li[1]:ui[1], li[2]:ui[2], i+1]*p
+            # end
             if i == 0
-                f = patch["var"](iv)[li[1]:ui[1], li[2]:ui[2], end]*(1.0 - p) +
-                    patch["var"](iv)[li[1]:ui[1], li[2]:ui[2], i+1]*p
+                f = variv[:, :, end]*(1.0 - p) +
+                    variv[:, :, i+1]*p
             else
-                f = patch["var"](iv)[li[1]:ui[1], li[2]:ui[2], i]*(1.0 - p) +
-                    patch["var"](iv)[li[1]:ui[1], li[2]:ui[2], i+1]*p
+                f = variv[:, :, i]*(1.0 - p) +
+                    variv[:, :, i+1]*p
             end
-        else
-            throw(ArgumentError("plane: must give one x, y, or z-value."))
         end
 
         Bool(verbose) ? println("plane: $i, p = $i $p") : nothing

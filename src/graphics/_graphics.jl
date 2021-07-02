@@ -122,97 +122,7 @@ function histogram_along(snap, pt=[0.5, 0.5, 0.5]; kw...)
 
     hist
 end
-#
-# function histogram_along!(snap, pt=[0.5, 0.5, 0.5]; kw...)
-#     """
-#     append to a histogram
-#     """
-#
-#     kw = Dict(kw)
-#     kv = Dict{Symbol, Any}(:dir => 1, :verbose => 0,
-#                            :all => false, :iv => 0,
-#                            :i4 => 0, :var => 0,
-#                            :label => nothing, :title => 0,
-#                            :norm => false, :bins => :auto)
-#
-#
-#     _kw_extract(kw, kv)
-#
-#     data = values_along(snap, pt, iv=kv[:iv], dir=kv[:dir], all=kv[:all])
-#     xyz = ["x", "y", "z"]
-#     idxs = [k for k in 1:3 if k != kv[:dir]]
-#     at = getindex(pt, idxs)
-#     at_idx = getindex(xyz, idxs)
-#     time = round(snap["time"], digits=2)
-#
-#     label = "t = $time at $(at_idx[1]) = $(at[1]), $(at_idx[2]) = $(at[2])"
-#     histogram!(data, normalize=kv[:norm], label=label)
-# end
 
-
-
-# function Surface(snap::Dict; x = nothing, y = nothing, z = 0.5, unigrid=true,
-#                 kw...)
-#
-#     kw = Dict(kw)
-#     kv = Dict{Symbol, Any}(:verbose => 0, :iv => 0,
-#                            :grids => false, :cmap => nothing,
-#                            :title => nothing, :label => nothing,
-#                            :xlims => (0, 1), :ylims => (0, 1),
-#                            :xlabel => nothing, :ylabel => nothing)
-#
-#     _kw_extract(kw, kv)
-#
-#     iv = kv[:iv]
-#
-#     if kv[:label] == nothing
-#         kv[:label] = get_unit(snap, iv)
-#     end
-#
-#     xyz = [x, y, z]
-#     dirs = [(x, "x"), (y, "y"), (z, "z")]
-#     sliceDir = getindex(dirs, xyz .!= nothing)[1]
-#     planeDirs = getindex(dirs, xyz .== nothing)
-#
-#     if unigrid
-#         data = unigrid_plane(snap, x=x, y=y, z=z, iv=iv, verbose=verbose)
-#     else
-#         data = amr_plane(snap, x=x, y=y, z=z, iv=iv, verbose=verbose)
-#     end
-#
-#     x0, xend = kv[:xlims]
-#     y0, yend = kv[:ylims]
-#
-#     X = range(x0, xend, length=size(data)[1])
-#     Y = range(y0, yend, length=size(data)[2])
-#
-#     kv[:cmap] != nothing ? cmap = kv[:cmap] : cmap = :auto
-#
-#     surface(X, Y, data, label=kv[:label], c=cmap, cbar=false)
-#
-#     if typeof(kv[:title]) <: String
-#         title!(kv[:title])
-#     elseif kv[:title] == :pos
-#         title!("$(sliceDir[2]) = $(sliceDir[1])")
-#     elseif kv[:title] == :time
-#         time = round(snap["time"], digits=2)
-#         title!("t = $time")
-#     end
-#
-#     if kv[:xlabel] != nothing
-#         xlabel!(kv[:xlabel])
-#     else
-#         xlabel!(planeDirs[1][2])
-#     end
-#
-#     if kv[:ylabel] != nothing
-#         ylabel!(kv[:ylabel])
-#     else
-#         ylabel!(planeDirs[2][2])
-#     end
-#
-#
-# end
 
 function sliceplot(d1, d2, data::Array{T, 2} where T;
                   x = nothing, y = nothing, z = nothing, kw...)
@@ -395,14 +305,14 @@ function sliceplot(snap::Dict,
 
     end
 
-    if kv[:resample]
+    if !isnothing(kw[:resampledims]) || kv[:resample]
         newdims = nothing
-        if kv[:resampledims] == nothing
+        if isnothing(kv[:resampledims])
             newdims = kv[:dims]
         else
             newdims = kv[:resampledims]
         end
-        Bool(verbose) ? println("Resampling with size $newdims") : nothing
+        Bool(verbose) && println("Resampling to size $newdims")
         d1, d2, data = resample(d1, d2, data, newdims)
     end
 
@@ -412,7 +322,7 @@ function sliceplot(snap::Dict,
 
     hm = nothing
     if string(kv[:style]) == "streamplot"
-        return Streamplot(d1, d2, data)
+        return streamplot_(d1, d2, data)
     else
         hm = plot(d1, d2, data,
                   st=kv[:style],
@@ -628,19 +538,19 @@ function volume(snap::Dict; iv = 0, kw...)
     scene
 end
 
-function anim_plane(;data="", x = nothing, y = nothing, z = nothing, iv=0, 
-                    tspan=nothing, unigrid=true, step=1)
+function anim_plane(;data="../data", run="", x = nothing, y = nothing, z = nothing, iv=0, 
+                    tspan=nothing, unigrid=true, step=1, savepath=nothing)
 
-    nsnapshots = get_n_snapshots(data=data)
+    nsnapshots = get_n_snapshots(data=data, run=run)
 
-    anim = @animate for i = 1:nsnapshots-1
-        snap = snapshot(i, data=data)
+    anim = @animate for i = 1:step:nsnapshots-1
+        snap = snapshot(i, data=data, run=run)
         isnothing(snap) && continue
         plne = unigrid_plane(snap, x=x, y=y, z=z, iv=iv)
         heatmap(plne)
-    end every step
+    end #every step
 
-    gif(anim, "test.gif")
+    gif(anim, savepath)
     
 
 end

@@ -2,5 +2,5 @@ using JuliaDispatch
 using Test
 
 @testset "JuliaDispatch.jl" begin
-    include("TestSliceplot.jl")
+    include("TestSnapshot.jl")
 end

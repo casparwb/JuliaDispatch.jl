@@ -517,11 +517,11 @@ function _patch2(id, patch_dict, snap; memmap=1, verbose=0)
     end
     if strip(snap["io"]["method"]) == "legacy"
         patch["filename"] = snap["rundir"]*
-                        "/$(@sprintf("%05d/%05d", patch["iout"], patch["id"])).dat"
+                        "$(@sprintf("%05d/%05d", patch["iout"], patch["id"])).dat"
         patch["var"] = _var(patch, patch["filename"], snap)
     elseif strip(snap["io"]["method"]) == "background"
-        patch["filename"] = snap["rundir"]*"/$(@sprintf("/%05d/snapshot_%05d.dat", patch["iout"], patch["rank"])).dat"#"/{:05d}/snapshot_{:05d}.dat".format(self.iout,self.rank)
-        patch["var"] = _var(patch, patch["filename"], snap, verbose=verbose)#_var(self,self.filename,snap,verbose=verbose)
+        patch["filename"] = snap["rundir"]*"$(@sprintf("%05d/snapshot_%05d.dat", patch["iout"], patch["rank"]))"
+        patch["var"] = _var(patch, patch["filename"], snap, verbose=verbose)
     else
         patch["var"] = _var(patch, snap["datafiled"], snap)
     end
@@ -533,7 +533,7 @@ function _patch2(id, patch_dict, snap; memmap=1, verbose=0)
     patch["keys"]["letters"] = collect(keys(snap["idx"]))
     patch["keys"]["numbers"] = collect(values(snap["idx"]))
     patch["keys"]["known"] = ["d","lnd","logd","ux","uy","uz","u1","u2","u3",
-                                "ee","E","T","eth","ekin"]
+                                "ee","E","T","eth", "Eth", "ekin", "emag", "S"]
 
 
     # attach an aux filename, if one exists for this task
@@ -644,13 +644,13 @@ function _patch(id, patch_dict, snap, rank, verbose=0)
 
     if strip(snap["io"]["method"]) == "legacy"
         patch["filename"] = snap["rundir"]*
-                        "/$(@sprintf("%05d/%05d", patch["iout"], patch["id"])).dat"
-        patch["var"] = _var(patch, patch["filename"], snap)
+                        "$(@sprintf("%05d/%05d", patch["iout"], patch["id"])).dat"
+        patch["var"] = _var(patch, patch["filename"], snap, verbose=verbose)
     elseif strip(snap["io"]["method"]) == "background"
-        patch["filename"] = snap["rundir"]*"/$(@sprintf("/%05d/snapshot_%05d.dat", patch["iout"], patch["rank"])).dat"#"/{:05d}/snapshot_{:05d}.dat".format(self.iout,self.rank)
-        self.var=_var(self,self.filename,snap,verbose=verbose)
+        patch["filename"] = snap["rundir"]*"$(@sprintf("%05d/snapshot_%05d.dat", patch["iout"], patch["rank"]))"
+        self.var=_var(patch, patch["filename"],snap,verbose=verbose)
     else
-        patch["var"] = _var(patch, snap["datafiled"], snap)
+        patch["var"] = _var(patch, snap["datafiled"], snap, verbose=verbose)
     end
 
     """ add a comprehensive set of variable keys """
@@ -730,7 +730,7 @@ function _var(patch, filed, snap; verbose = 0, copy = nothing)
         Translate alphabetic variable keys to numeric
         """
 
-        verbose == 1 ? println("mem($iv)") : nothing
+        verbose == 1 && println("mem($iv)")
 
         if typeof(iv) == typeof("d")
             iv = patch["idx"][iv]
@@ -824,7 +824,7 @@ function _var(patch, filed, snap; verbose = 0, copy = nothing)
 
             rank = min(length(vshape), length(patch["gn"]))
 
-            if vshape[1:rank+1] != tuple(patch["gn"][1:rank+1]...)
+            if vshape[1:rank] != tuple(patch["gn"][1:rank]...)
                 gn = collect(vshape)
                 ng2 = Base.copy(gn)
                 for i = 1:length(patch["gn"])
@@ -835,15 +835,15 @@ function _var(patch, filed, snap; verbose = 0, copy = nothing)
                 n = gn .- ng2
                 l = ng
                 u = l + n
-                l .+= 1
+                #l .+= 1
             end
 
-            return v[l[1]:u[1], l[2]:u[2], l[3]:u[3]]
+            return v[l[1] + 1:u[1], l[2] + 1:u[2], l[3] + 1:u[3]]
 
         else
             rank = min(length(vshape), length(patch["gn"]))
-            if vshape[1:rank+1] != tuple(patch["n"][1:rank+1]...)
-                gn = Array(vshape)
+            if vshape[1:rank] != tuple(patch["n"][1:rank]...)
+                gn = collect(vshape)
                 ng2 = Base.copy(gn)
 
                 for i = 1:length(patch["gn"])
@@ -873,100 +873,114 @@ function _var(patch, filed, snap; verbose = 0, copy = nothing)
     end
 
     """
-        var(iv; all = false, copy = nothing, i4 = 1, verbose = 0)
+        var2(iv; all = false, copy = nothing, i4 = 1, verbose = 0)
 
     Evaluate arguments of various forms, including expressions.
 
     If the data is in spherical or cylindrical coords., then it is the angular
     momentum in the snapshot, and thus the division by metric factors.
     """
-    function var(iv; all = false, copy = nothing, i4 = 1, verbose = 0)
+    function var(iv; all = false, copy = false, i4 = 1, verbose = 0)
         if typeof(iv) == Int
             @assert iv in patch["keys"]["numbers"] "variable index unknown"
         end
 
         # determine data representation
+        is_ln = false
+        is_vel = false
+        is_hlls = false
 
-        is_ln = ((  patch["ioformat"] - 6 )/2 == 0
-                || (patch["ioformat"] - 10)÷2 == 0
-                ||  patch["ioformat"] == 15
-                ||  patch["ioformat"] == 14)
+        if strip(snap["io"]["method"]) == "parallel"
+            is_ln  = ((  patch["ioformat"] - 6 )/2 == 0) ||
+                     ((  patch["ioformat"] - 10)÷2 == 0)
+            is_vel = ((  patch["ioformat"] - 6 )%2 == 2)
 
-        is_v  = (( patch["ioformat"] - 6)%2==0
-                || patch["ioformat"] == 15
-                || patch["ioformat"] == 14)
+            if patch["ioformat"] == 14
+                is_vel = false
+                is_ln = false
+            end # if
+        end # if
 
-        is_st = patch["kind"][1:4] == "zeus" || patch["kind"][1:7] == "stagger"
+        is_staggered = patch["kind"][1:4] == "zeus" || patch["kind"][1:7] == "stagger"
+        tot_e = patch["kind"][1:6] == "ramses"
+        is_hlls = patch["kind"][1:8] == "ramses_s"
+
+        if verbose == 1
+            println("is_ln: $is_ln")
+            println("is_vel: $is_vel")
+            println("tot_e: $tot_e")
+            println("is_staggered: $is_staggered")
+        end
+
         v = nothing
+        iv = typeof(iv) == Char ? iv = string(iv) : iv # convert to string if character
 
         # check if the index corresponds to a cached array
-        if iv in keys(patch["data"])
+        if haskey(patch["data"], iv)
+            verbose == 1 && println("$iv in data keys $(size(v))")
             v = patch["data"][iv]
+        
 
         # or an aux item
-        elseif iv in keys(patch["aux"]["vars"])
+        elseif haskey(patch["aux"]["vars"], iv)
             v = patch["aux"]["vars"][iv]["v"]
-            verbose == 1 ? println("$iv in keys $(size(v))") : nothing
+            verbose == 1 && println("$iv in keys $(size(v))")
 
         # or a numeric index
         elseif iv in patch["keys"]["numbers"]
-            verbose == 1 ? println("iv is a number: $iv") : nothing
+            verbose == 1 && println("iv is a number: $iv")
             if iv >= 1
                 v = mem(iv, verbose=verbose)
             end
 
         # or known variables
         elseif iv in patch["keys"]["known"]
-            verbose == 1 ? println("iv is a known name $iv") : nothing
+            verbose == 1 && println("iv is a known name: $iv")
 
             # density
             if iv == "d"
-                v = is_ln ? exp.(mem("d")) : mem("d")
+                v = is_ln ? exp.(mem("d", verbose=verbose)) : mem("d", verbose=verbose)
             elseif iv == "lnd"
                 v = is_ln ? mem("d") : log.(mem("d"))
             elseif iv == "logd"
                 v = is_ln ? mem("d")/log(10) : log10.(mem("d"))
 
             # velocity
-        elseif iv == "u1" || iv == "ux" iv == "vx"
-                if is_v
+            elseif iv == "u1" || iv == "ux" || iv == "vx"
+                if is_vel
                     v = mem("p1")
-                elseif is_st
+                elseif is_staggered
                     v = xup(mem("p1")) ./
                         exp.(xdn(var("lnd", all=true, verbose=verbose)))
                 else
-                    v = mem("p1")/var("d", all=true, verbose=verbose)
-                end
+                    v = mem("p1") ./ var("d", all=true, verbose=verbose)
+                end 
 
-            elseif iv == "u2" || iv == "uy" iv == "vy"
-                if is_v
+            elseif iv == "u2" || iv == "uy" || iv == "vy"
+                if is_vel
                     v = mem("p2")
                 elseif patch["mesh_type"] != "Cartesian"
-                    shp = size(patch["geometric_factors"]["h2c"])
-                    v = mem("p2") / ydn("d") ./
-                        reshape(patch["geometric_factors"]["h2c"], (shp[1], 1, 1))
+                    v = mem("p2") ./ ydn("d") ./ 
+                        reshape(patch["geometric_factors"]["h2c"], :, 1, 1)
                 else
-                    if is_st
+                    if is_staggered
                         v = yup(mem("p2")) ./
                             exp.(ydn(var("lnd", all=true, verbose=verbose)))
                     else
                         v = mem("p2") ./ var("d", all=true, verbose=verbose)
                     end
-
                 end
 
-            elseif iv == "u3" || iv == "uz" iv == "vz"
-                if is_v
+            elseif iv == "u3" || iv == "uz" || iv == "vz"
+                if is_vel
                     v = mem("p3")
                 elseif patch["mesh_type"] != "Cartesian"
                     gf = patch["geometric_factors"]
-                    shp1 = size(gf["h31c"])
-                    shp2 = size(gf["h32c"])
-                    v = mem("p3") / zdn("d") / reshape(gf["h31c"], (shp1[1], 1, 1)) /
-                        reshape(gf["h32c"], (1, shp2[2], 1))
-
+                    v = mem("p3") ./ zdn("d") ./ 
+                        reshape(gf["h31c"], :, 1, 1) ./
+                        reshape(gf["h32c"], :, 1, 1)
                 else
-                    if is_st
+                    if is_staggered
                         v = zup(mem("p3")) ./
                             exp.(zdn(var("lnd", all=true, verbose=verbose)))
                     else
@@ -979,6 +993,11 @@ function _var(patch, filed, snap; verbose = 0, copy = nothing)
                 """ Expressions common to all other solvers """
                     if patch["ioformat"] == 14 || patch["ioformat"] == 15
                         v = mem("e")
+                    elseif !is_staggered
+                        v = (mem("e") .- 
+                             var("ekin", all=true, verbose=verbose) .- 
+                             var("emag", all=true, verbose=verbose)) ./ 
+                             mem("d")
                     else
                         v = mem("e") ./ mem("d")
                     end
@@ -987,44 +1006,80 @@ function _var(patch, filed, snap; verbose = 0, copy = nothing)
             elseif iv == "ekin"
                 v = 0.5*var("d", all=true) .*
                     (
-                    var("ux", all=true, verbose=verbose).^2 .+
-                    var("uy", all=true, verbose=verbose).^2 .+
-                    var("uz", all=true, verbose=verbose).^2
+                        var("ux", all=true, verbose=verbose).^2 .+
+                        var("uy", all=true, verbose=verbose).^2 .+
+                        var("uz", all=true, verbose=verbose).^2
                     )
+            # magnetic energy
+            elseif iv == "emag"
+                v = 0.125*(
+                            xup(var("bx", all=true, verbose=verbose)) .^ 2 .+
+                            yup(var("by", all=true, verbose=verbose)) .^ 2 .+
+                            zup(var("bz", all=true, verbose=verbose)) .^ 2
+                          )
 
             # Thermal energy
             elseif iv == "eth"
-                if patch["ioformat"] == 14 || patch["ioformat"] == 15 || is_st
+                if is_hlls
+                    g1 = snap["gamma"] - 1.0
+                    v = var("d", all=true, verbose=verbose) .^ snap["gamma"] .*
+                        exp.(
+                            var("s", all=true, verbose=verbose) ./ 
+                            var("d", all=true, verbose=verbose)*g1)/g1
+                elseif patch["gamma"] == 1.0
                     v = mem("e")
+                elseif tot_e
+                    v = var("e", all=true, verbose=verbose) .-
+                        var("ekin", all=true, verbose=verbose) .-
+                        var("emag", all=true, verbose=verbose)
                 else
-                    v = mem("e") .- var("ekin", all = true, verbose = verbose)
+                    v = mem("e")
                 end
+            
+            elseif iv == "Eth"
+                v = var("eth", all=true, verbose=verbose) ./
+                    var("d", all=true, verbose=verbose)
+
+            elseif iv == "S"
+                v = log.(
+                         var("eth", all=true, verbose=verbose) ./
+                         var("d", all=true, verbose=verbose)^snap["gamma"]
+                         )/(snap["gamma"] - 1)
 
             # Temperature
             elseif iv == "tt" || "T"
-                v = var("eth", all = true, verbose = verbose)
-                if "scaling" in keys(snap)
-                    v = v*snap["scaling"]["temp"]
+                if is_hlls
+                    g1 = snap["gamma"] - 1.0
+                    vard = var("d", all=true, verbose=verbose)
+                    v = vard^snap["gamma"] .*
+                        exp.(var("s", all=true, verbose=verbose) ./
+                             vard*g1) ./ vard
+                else
+                    v = var("Eth", all=true, verbose=verbose)
                 end
 
-            # Magnetic field
-            elseif iv == "bx" || iv == "b1"
-                v = xup(mem(iv))
-            elseif iv == "by" || iv == "b2"
-                v = yup(mem(iv))
-            elseif iv == "bz" || iv == "b3"
-                v = zup(mem(iv))
-
+            # # Magnetic field
+            # elseif iv == "bx" || iv == "b1"
+            #     v = xup(mem(iv))
+            # elseif iv == "by" || iv == "b2"
+            #     v = yup(mem(iv))
+            # elseif iv == "bz" || iv == "b3"
+            #     v = zup(mem(iv))
         end
 
+        # or a letter index
         elseif iv in patch["keys"]["letters"]
-            verbose == 1 ? println("iv is a letter") : nothing
-            iv = patch["idx"][iv]
-            v = mem(iv)
+            verbose == 1 && println("iv is a string: $iv $(patch["idx"]["dict"][iv])")
+            iv = patch["idx"]["dict"][iv]
+            if iv >= 0
+                v = mem(iv)
+            else
+                v = 0.0*mem(0)
+            end
 
         else
-            verbose == 1 ? println("unknown expression $iv") : nothing
-            v = expression_parser(patch, iv) # NOT FINISHED TO-DO
+            verbose == 1 && println("unknown expression $iv")
+            #v = expression_parser(patch, iv) # NOT FINISHED TO-DO
         end
 
         if v !== nothing
@@ -1042,17 +1097,18 @@ function _var(patch, filed, snap; verbose = 0, copy = nothing)
     return var
 end
 
+
 """ dont know what this is """
 function _h(dict)
     idx = dict["idx"]
     h = zeros(3, dict["nv"])
     if dict["kind"][1:7] == "stagger"
-        idx["p1"] >= 1 ? h[1,idx["p1"]] = -0.5 : nothing
-        idx["b1"] >= 1 ? h[1,idx["b1"]] = -0.5 : nothing
-        idx["p2"] >= 1 ? h[2,idx["p2"]] = -0.5 : nothing
-        idx["b2"] >= 1 ? h[2,idx["b2"]] = -0.5 : nothing
-        idx["p3"] >= 1 ? h[3,idx["p3"]] = -0.5 : nothing
-        idx["b3"] >= 1 ? h[3,idx["b3"]] = -0.5 : nothing
+        if (idx["p1"] >= 1)  h[1,idx["p1"]] = -0.5 end
+        if (idx["b1"] >= 1)  h[1,idx["b1"]] = -0.5 end
+        if (idx["p2"] >= 1)  h[2,idx["p2"]] = -0.5 end
+        if (idx["b2"] >= 1)  h[2,idx["b2"]] = -0.5 end
+        if (idx["p3"] >= 1)  h[3,idx["p3"]] = -0.5 end
+        if (idx["b3"] >= 1)  h[3,idx["b3"]] = -0.5 end
     end
 
     return h

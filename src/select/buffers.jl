@@ -361,25 +361,25 @@ function unigrid_volume(snap; iv = 0,  all=false, verbose=0)
 end
 
 """
-resample(d1::Array{Float, 1} where T, d2::Array{Float, 1},
-         data::Array{Float, 2}, newdims::Union{Int, Tuple})
+    resample(d1::Array{Float, 1} where T, d2::Array{Float, 1},
+             data::Array{Float, 2}, newdims::Union{Int, Tuple})
 
-Resize 2d data array to shape defined by newdims. Data is resampled over axis values d1 and d2
+Resize 2d data array to shape defined by `newdims`. Data is resampled over axis values d1 and d2
 using gridded bilinear interpolation.
 
 Arguments:
 --------------
-    - d1: Array{Float, 1}, axis values along dimension 1
-    - d2: Array{Float, 1}, axis values along dimension 2
-    - data: Array{Float, 2}, data to be resampled. Must have shape == (length(d1), length(d2))
-    - newdims: Int/Tuple, shape of resampled data. If Int, all dimensions will have
-               same size. If Tuple, size(newdims) must be 2.
+- `d1::Array{Float, 1}`, axis values along dimension 1
+- `d2::Array{Float, 1}`, axis values along dimension 2
+- `data::Array{Float, 2}`, data to be resampled. Must have `shape == (length(d1), length(d2))`
+- `newdims::Union{Int, Tuple}`, shape of resampled data. If `Int`, all dimensions will have
+               same size. If `Tuple`, `size(newdims)` must be 2.
 
 Returns:
 --------------
-    - Array{Float, 1}, resampled axis 1 values
-    - Array{Float, 1}, resampled axis 2 values
-    - Array{Float, 2}, resampled data values
+- `Array{Float, 1}`, resampled axis 1 values
+- `Array{Float, 1}`, resampled axis 2 values
+- `Array{Float, 2}`, resampled data values
 """
 function resample(d1, d2, data::Array{T, 2} where T, newdims)
 
@@ -406,27 +406,27 @@ function resample(d1, d2, data::Array{T, 2} where T, newdims)
 end
 
 """
-resample(xs::Array{Float, 1} where T, ys::Array{Float, 1}, zs::Array{Float, 1},
-         data::Array{Float, 3}, newdims::Union{Int, Tuple})
+    resample(xs::Array{Float, 1} where T, ys::Array{Float, 1}, zs::Array{Float, 1},
+            data::Array{Float, 3}, newdims::Union{Int, Tuple})
 
 Resize 3d data array to shape defined by newdims. Data is resampled over axis values xs, ys, and zs
 using gridded trilinear interpolation.
 
 Arguments:
 --------------
-    - xs: Array{Float, 1}, axis values along dimension 1
-    - ys: Array{Float, 1}, axis values along dimension 2
-    - zs: Array{Float, 1}, axis values along dimension 3
-    - data: Array{Float, 3}, data to be resampled. Must have shape == (length(d1), length(d2), length(d3))
-    - newdims: Int/Tuple, shape of resampled data. If Int, all dimensions will have
-               same size. If Tuple, size(newdims) must be 3.
+- `xs::Array{Float, 1}`, axis values along dimension 1
+- `ys::Array{Float, 1}`, axis values along dimension 2
+- `zs::Array{Float, 1}`, axis values along dimension 3
+- `data::Array{Float, 3}`, data to be resampled. Must have `shape == (length(d1), length(d2), length(d3))`
+- `newdims::Union{Int, Tuple}`, shape of resampled data. If `Int`, all dimensions will have
+               same size. If `Tuple`, `size(newdims)` must be 3.
 
 Returns:
 --------------
-    - Array{Float, 1}, resampled axis 1 values
-    - Array{Float, 1}, resampled axis 2 values
-    - Array{Float, 1}, resampled axis 3 values
-    - Array{Float, 3}, resampled data values
+- `Array{Float, 1}`, resampled axis 1 values
+- `Array{Float, 1}`, resampled axis 2 values
+- `Array{Float, 1}`, resampled axis 3 values
+- `Array{Float, 3}`, resampled data values
 """
 function resample(xs, ys, zs, data::Array{T, 3} where T, newdims)
 
@@ -444,9 +444,9 @@ function resample(xs, ys, zs, data::Array{T, 3} where T, newdims)
 
     itp = Itp.interpolate((x, y, z), data, Itp.Gridded(Itp.Linear()))
 
-    for iy in eachindex(nys)
-        for ix in eachindex(nxs)
-            for iz in eachindex(nzs)
+    for iz in eachindex(nzs)
+        for iy in eachindex(nys)
+            for ix in eachindex(nxs)
                 new_data[ix, iy, iz] = itp(nxs[ix], nys[iy], nzs[iz])
             end
         end

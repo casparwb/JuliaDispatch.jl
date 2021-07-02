@@ -347,7 +347,7 @@ function parse_patches(snap::Dict, file="../data/00000/rank_00000_patches.nml")
             elseif items[1] == "KIND"
                 d["kind"] = items[2]
             elseif items[1] == "/" && watch_block # the final entry of a namelist is always "/"
-                if nbor_info != nothing
+                if nbor_info !== nothing
                     d["parent_id"]=nbor_info[id]["parent_id"]
                     d["nbor_ids"]=nbor_info[id]["nbor_ids"]
                 end
@@ -567,120 +567,120 @@ function _patch2(id, patch_dict, snap; memmap=1, verbose=0)
 end # function
 
 
-function _patch(id, patch_dict, snap, rank, verbose=0)
+# function _patch(id, patch_dict, snap, rank, verbose=0)
 
-    patch = Dict()
-    patch["id"] = id
-    patch["rank"] = rank
-    patch["memmap"] = 1
+#     patch = Dict()
+#     patch["id"] = id
+#     patch["rank"] = rank
+#     patch["memmap"] = 1
 
-    # add general attributes from snapshot.nml
-    for (k, v) in snap["dict"]
-        patch[k] = v
-    end
+#     # add general attributes from snapshot.nml
+#     for (k, v) in snap["dict"]
+#         patch[k] = v
+#     end
 
-    for (k, v) in patch_dict
-        patch[k] = v
-    end
+#     for (k, v) in patch_dict
+#         patch[k] = v
+#     end
 
-    if !patch["guard_zones"]
-        patch["li"][:] .= 1
-        patch["ui"][:] .= patch["n"]
-    end
+#     if !patch["guard_zones"]
+#         patch["li"][:] .= 1
+#         patch["ui"][:] .= patch["n"]
+#     end
 
-    if "idx" in keys(snap)
-        patch["idx"] = snap["idx"]
-        patch["idx"]["h"] = _h(patch)
-    end
+#     if "idx" in keys(snap)
+#         patch["idx"] = snap["idx"]
+#         patch["idx"]["h"] = _h(patch)
+#     end
 
-    # reconstruct items pruned from patch_nml
+#     # reconstruct items pruned from patch_nml
 
-    if "size" in keys(patch) && "position" in keys(patch)
-        llc = patch["position"] - patch["size"]/2.0
-        urc = patch["position"] + patch["size"]/2.0
+#     if "size" in keys(patch) && "position" in keys(patch)
+#         llc = patch["position"] - patch["size"]/2.0
+#         urc = patch["position"] + patch["size"]/2.0
 
-        patch["extent"] = reshape([llc[2] urc[2] llc[3] urc[3]
-                                  llc[3] urc[3] llc[1] urc[1]
-                                  llc[1] urc[1] llc[2] urc[2]], 3, 4)
-        # patch["extent"] = SMatrix{3, 4, Float16}(llc[2], urc[2], llc[3], urc[3],
-        #                                         llc[3], urc[3], llc[1], urc[1],
-        #                                         llc[1], urc[1], llc[2], urc[2])
-        patch["llc_cart"] = llc
+#         patch["extent"] = reshape([llc[2] urc[2] llc[3] urc[3]
+#                                   llc[3] urc[3] llc[1] urc[1]
+#                                   llc[1] urc[1] llc[2] urc[2]], 3, 4)
+#         # patch["extent"] = SMatrix{3, 4, Float16}(llc[2], urc[2], llc[3], urc[3],
+#         #                                         llc[3], urc[3], llc[1], urc[1],
+#         #                                         llc[1], urc[1], llc[2], urc[2])
+#         patch["llc_cart"] = llc
 
-    end
+#     end
 
-    if !("units" in keys(patch))
-        if "units" in keys(snap)
-            patch["units"] = snap["units"]
-            if !("u" in keys(patch["units"]))
-                patch["units"]["u"] = patch["units"]["l"]/patch["units"]["t"]
-            end
-            if !("d" in keys(patch["units"]))
-                patch["units"]["d"] = patch["units"]["m"]/patch["units"]["l"]^3
-            end
-            if !("p" in keys(patch["units"]))
-                patch["units"]["p"] = patch["units"]["d"]/patch["units"]["u"]^2
-            end
-            if !("e" in keys(patch["units"]))
-                patch["units"]["e"] = patch["units"]["m"]/patch["units"]["u"]^2
-            end
-            if !("b" in keys(patch["units"]))
-                patch["units"]["b"] = patch["units"]["u"]*sqrt(4π*patch["units"]["d"])
-            end
-        end
+#     if !("units" in keys(patch))
+#         if "units" in keys(snap)
+#             patch["units"] = snap["units"]
+#             if !("u" in keys(patch["units"]))
+#                 patch["units"]["u"] = patch["units"]["l"]/patch["units"]["t"]
+#             end
+#             if !("d" in keys(patch["units"]))
+#                 patch["units"]["d"] = patch["units"]["m"]/patch["units"]["l"]^3
+#             end
+#             if !("p" in keys(patch["units"]))
+#                 patch["units"]["p"] = patch["units"]["d"]/patch["units"]["u"]^2
+#             end
+#             if !("e" in keys(patch["units"]))
+#                 patch["units"]["e"] = patch["units"]["m"]/patch["units"]["u"]^2
+#             end
+#             if !("b" in keys(patch["units"]))
+#                 patch["units"]["b"] = patch["units"]["u"]*sqrt(4π*patch["units"]["d"])
+#             end
+#         end
 
-    end
+#     end
 
-    # modify `mesh_type` from integer to string for readability
-    if "mesh_type" in keys(patch)
-        if patch["mesh_type"] == 1
-            patch["mesh_type"] = "Cartesian"
-        elseif patch["mesh_type"] == 2
-            patch["mesh_type"] = "spherical"
-        elseif patch["mesh_type"] == 3
-            patch["mesh_type"] = "cylindrical"
-        end
-    end
+#     # modify `mesh_type` from integer to string for readability
+#     if "mesh_type" in keys(patch)
+#         if patch["mesh_type"] == 1
+#             patch["mesh_type"] = "Cartesian"
+#         elseif patch["mesh_type"] == 2
+#             patch["mesh_type"] = "spherical"
+#         elseif patch["mesh_type"] == 3
+#             patch["mesh_type"] = "cylindrical"
+#         end
+#     end
 
-    if strip(snap["io"]["method"]) == "legacy"
-        patch["filename"] = snap["rundir"]*
-                        "$(@sprintf("%05d/%05d", patch["iout"], patch["id"])).dat"
-        patch["var"] = _var(patch, patch["filename"], snap, verbose=verbose)
-    elseif strip(snap["io"]["method"]) == "background"
-        patch["filename"] = snap["rundir"]*"$(@sprintf("%05d/snapshot_%05d.dat", patch["iout"], patch["rank"]))"
-        self.var=_var(patch, patch["filename"],snap,verbose=verbose)
-    else
-        patch["var"] = _var(patch, snap["datafiled"], snap, verbose=verbose)
-    end
+#     if strip(snap["io"]["method"]) == "legacy"
+#         patch["filename"] = snap["rundir"]*
+#                         "$(@sprintf("%05d/%05d", patch["iout"], patch["id"])).dat"
+#         patch["var"] = _var(patch, patch["filename"], snap, verbose=verbose)
+#     elseif strip(snap["io"]["method"]) == "background"
+#         patch["filename"] = snap["rundir"]*"$(@sprintf("%05d/snapshot_%05d.dat", patch["iout"], patch["rank"]))"
+#         self.var=_var(patch, patch["filename"],snap,verbose=verbose)
+#     else
+#         patch["var"] = _var(patch, snap["datafiled"], snap, verbose=verbose)
+#     end
 
-    """ add a comprehensive set of variable keys """
-    patch["aux"] = Dict()
-    patch["data"] = Dict()
-    patch["keys"] = Dict()
-    patch["keys"]["letters"] = collect(keys(snap["idx"]))
-    patch["keys"]["numbers"] = collect(values(snap["idx"]))
-    patch["keys"]["known"] = ["d","lnd","logd","ux","uy","uz","u1","u2","u3",
-                             "ee","E","T","eth","ekin"]
+#     """ add a comprehensive set of variable keys """
+#     patch["aux"] = Dict()
+#     patch["data"] = Dict()
+#     patch["keys"] = Dict()
+#     patch["keys"]["letters"] = collect(keys(snap["idx"]))
+#     patch["keys"]["numbers"] = collect(values(snap["idx"]))
+#     patch["keys"]["known"] = ["d","lnd","logd","ux","uy","uz","u1","u2","u3",
+#                              "ee","E","T","eth","ekin"]
 
 
-    # attach an aux filename, if one exists for this task
-    auxfile = "/$(@sprintf("%05d", id)).aux"
+#     # attach an aux filename, if one exists for this task
+#     auxfile = "/$(@sprintf("%05d", id)).aux"
 
-    auxfile = snap["datadir"]*auxfile
-    patch["auxfile"] = auxfile
-    patch["aux"] = aux(id = id, rundir=snap["rundir"], datadir=snap["datadir"],
-                       io = snap["iout"], file = auxfile, verbose=verbose)
-    patch["keys"]["aux"] = collect(keys(patch["aux"]["vars"]))
+#     auxfile = snap["datadir"]*auxfile
+#     patch["auxfile"] = auxfile
+#     patch["aux"] = aux(id = id, rundir=snap["rundir"], datadir=snap["datadir"],
+#                        io = snap["iout"], file = auxfile, verbose=verbose)
+#     patch["keys"]["aux"] = collect(keys(patch["aux"]["vars"]))
 
-    """ Collect all keys in a single array """
-    all = []
-    for key_list in values(patch["keys"])
-        append!(all, key_list)
-    end
-    patch["all_keys"] = all
+#     """ Collect all keys in a single array """
+#     all = []
+#     for key_list in values(patch["keys"])
+#         append!(all, key_list)
+#     end
+#     patch["all_keys"] = all
 
-    return patch
-end
+#     return patch
+# end
 
 
 function _var(patch, filed, snap; verbose = 0, copy = nothing)

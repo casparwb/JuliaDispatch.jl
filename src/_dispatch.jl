@@ -22,7 +22,7 @@ Parses patches and produces a dictionary with all properties of snapshot
 #Returns:
 - Dictionary of snapshot
 """
-function snapshot(iout=0; run="", data="../data", verbose = 0)
+function snapshot(iout=0; run="", data="../data", verbose = 0, copy = false, memmap = 1)
 
     ### wrapper for f90nml reader ###
     #read_nml(file) = pyimport("f90nml").read(file)
@@ -35,6 +35,8 @@ function snapshot(iout=0; run="", data="../data", verbose = 0)
         println("directory $(rundir) does not exist")
         return nothing
     end
+
+    statedict["copy"] = copy
 
     #datadir = _dir(rundir, "$(@sprintf("%05d", iout))")
     datadir = joinpath(rundir, "$(@sprintf("%05d", iout))")
@@ -54,9 +56,9 @@ function snapshot(iout=0; run="", data="../data", verbose = 0)
     ### add properties from namelist ###
     file = _file(rundir, "params.nml")
 
-    params_list = read_nml(file)
-
-    _add_nml_list_to(statedict, params_list)
+    #params_list = read_nml(file)
+    statedict["params_list"] = read_nml(file)
+    _add_nml_list_to(statedict, statedict["params_list"])
 
     ### finding snapshot files ###
     files = [f for f in readdir(datadir) if endswith(f, "snapshot.nml")]
@@ -873,7 +875,7 @@ function _var(patch, filed, snap; verbose = 0, copy = nothing)
     end
 
     """
-        var2(iv; all = false, copy = nothing, i4 = 1, verbose = 0)
+        var(iv; all = false, copy = nothing, i4 = 1, verbose = 0)
 
     Evaluate arguments of various forms, including expressions.
 
@@ -950,8 +952,8 @@ function _var(patch, filed, snap; verbose = 0, copy = nothing)
                 if is_vel
                     v = mem("p1")
                 elseif is_staggered
-                    v = xup(mem("p1")) ./
-                        exp.(xdn(var("lnd", all=true, verbose=verbose)))
+                    v = xup(mem("p1") ./
+                        exp.(xdn(var("lnd", all=true, verbose=verbose))))
                 else
                     v = mem("p1") ./ var("d", all=true, verbose=verbose)
                 end 
@@ -964,8 +966,8 @@ function _var(patch, filed, snap; verbose = 0, copy = nothing)
                         reshape(patch["geometric_factors"]["h2c"], :, 1, 1)
                 else
                     if is_staggered
-                        v = yup(mem("p2")) ./
-                            exp.(ydn(var("lnd", all=true, verbose=verbose)))
+                        v = yup(mem("p2") ./
+                            exp.(ydn(var("lnd", all=true, verbose=verbose))))
                     else
                         v = mem("p2") ./ var("d", all=true, verbose=verbose)
                     end
@@ -1043,15 +1045,15 @@ function _var(patch, filed, snap; verbose = 0, copy = nothing)
             elseif iv == "S"
                 v = log.(
                          var("eth", all=true, verbose=verbose) ./
-                         var("d", all=true, verbose=verbose)^snap["gamma"]
-                         )/(snap["gamma"] - 1)
+                         var("d", all=true, verbose=verbose) .^ snap["gamma"]
+                         ) ./ (snap["gamma"] - 1)
 
             # Temperature
-            elseif iv == "tt" || "T"
+            elseif iv == "tt" || iv == "T"
                 if is_hlls
                     g1 = snap["gamma"] - 1.0
                     vard = var("d", all=true, verbose=verbose)
-                    v = vard^snap["gamma"] .*
+                    v = vard .^ snap["gamma"] .*
                         exp.(var("s", all=true, verbose=verbose) ./
                              vard*g1) ./ vard
                 else

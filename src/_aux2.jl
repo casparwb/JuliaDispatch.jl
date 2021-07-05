@@ -38,13 +38,13 @@ function aux_read!(auxDict; verbose=0)
 
             rank = length(shp)
             len = prod(shp)
-            tpe = read(file, FString{2})
+            tpe = String(read(file, FString{2}))
 
             rank = length(shp)
 
             verbose > 2 && println("type: $tpe")
 
-            if startswith(String(tpe), "r")
+            if startswith(tpe, "r")
                 v = read(file, (Float32, len))
             else
                 v = read(file, (Int32, len))

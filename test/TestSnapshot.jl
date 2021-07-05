@@ -65,7 +65,7 @@ module TestSnapshot
     @testset "Aux quantity $auxIV" for auxIV in auxvars
         @test auxIV in snap100data["aux"]["select"]
     end # testset
-
+    
     patches = [patch for patch in keys(snap100data) if startswith(patch, "patch")]
     @testset "patch $patch" for patch in patches
         patchID = parse(Int, split(patch, "_")[2])

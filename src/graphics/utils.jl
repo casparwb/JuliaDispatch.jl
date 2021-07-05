@@ -45,55 +45,61 @@ end
 
 
 
-function get_unit(snap, iv)#, system=nothing)
+# function get_unit(snap, iv)#, system=nothing)
 
-    # if system == nothing
-    if !haskey(snap, "units") return nothing end
-    system = strip(snap["units"]["system"])
-    # end
+#     # if system == nothing
+#     if !haskey(snap, "units") return nothing end
+#     system = strip(snap["units"]["system"])
+#     # end
 
-    system = (1, 2)[system .== ["si", "cgs"]][1]
-    # index 1 is SI and index 2 is CGS
+#     system = (1, 2)[system .== ["si", "cgs"]][1]
+#     # index 1 is SI and index 2 is CGS
 
-    units = Dict{String, Array{String, 1}}(
-            "dens"          => [" kg/m^3", "g/cm^3"],
-            "vel"        => ["m/s", "cm/s"],
-            "energypm" => ["J/kg", "\\frac{g cm^2}{s^2 g}"],
-            "energy"          => ["J", "g cm^2 s^{-2}"],
-            "temp"       => ["K"],
-            "mag"    => ["T", "G"],
-            "momentum"   => ["kg m s^{-1}", "g cm s^{-1}"]
-            )
+#     units = Dict{String, Array{String, 1}}(
+#             "dens"          => [" kg/m^3", "g/cm^3"],
+#             "vel"        => ["m/s", "cm/s"],
+#             "energypm" => ["J/kg", "\\frac{g cm^2}{s^2 g}"],
+#             "energy"          => ["J", "g cm^2 s^{-2}"],
+#             "temp"       => ["K"],
+#             "mag"    => ["T", "G"],
+#             "momentum"   => ["kg m s^{-1}", "g cm s^{-1}"]
+#             )
 
-    unit = nothing
-    quant = nothing
-    if any(iv .== ("d", "lnd", "logd"))
-        unit = units["dens"][system]
-        quant = "density "
-    elseif any(iv .== ("u1", "u2", "u3", "ux", "uy", "uz", "vx", "vy", "vz"))
-        unit = units["vel"][system]
-        quant = "velocity "
-    elseif any(iv .== ("tt", "T"))
-        unit = units["temp"][1]
-        quant = "temperature "
-    elseif iv == "ekin"
-        unit = units["energy"][system]
-        quant = "kinetic energy "
-    elseif iv == "eth"
-        unit = units["energy"][system]
-        quant = "thermal energy "
-    elseif any(iv .== ("ee", "E"))
-        unit = units["energypm"][system]
-        quant = "specific energy "
-    elseif any(iv .== ("b1", "b2", "b3", "bx", "by", "bz"))
-        unit = units["mag"][system]
-        quant = "\\text{magnetic field} "
-    end
+#     unit = nothing
+#     quant = nothing
+#     if any(iv .== ("d", "lnd", "logd"))
+#         unit = units["dens"][system]
+#         quant = "density "
+#     elseif any(iv .== ("u1", "u2", "u3", "ux", "uy", "uz", "vx", "vy", "vz"))
+#         unit = units["vel"][system]
+#         quant = "velocity "
+#     elseif any(iv .== ("tt", "T"))
+#         unit = units["temp"][1]
+#         quant = "temperature "
+#     elseif iv == "ekin"
+#         unit = units["energy"][system]
+#         quant = "kinetic energy "
+#     elseif iv == "eth"
+#         unit = units["energy"][system]
+#         quant = "thermal energy "
+#     elseif any(iv .== ("ee", "E"))
+#         unit = units["energypm"][system]
+#         quant = "specific energy "
+#     elseif any(iv .== ("b1", "b2", "b3", "bx", "by", "bz"))
+#         unit = units["mag"][system]
+#         quant = "\\text{magnetic field} "
+#     end
 
-    unit = "\$ \\left[" *unit* "\\right] \$"
+#     unit = "\$ \\left[" *unit* "\\right] \$"
 
-    # return latexstring(quant*unit)
-    return latexstring(quant*unit)
+#     # return latexstring(quant*unit)
+#     return latexstring(quant*unit)
+
+# end
+
+function get_unit(iv)
+
+    
 
 end
 

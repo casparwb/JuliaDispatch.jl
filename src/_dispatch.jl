@@ -368,11 +368,11 @@ function _parse_namelist(items)
         pos[1] = replace(pos[1], "3*" => "")
         pos = [pos[1], pos[1], pos[1]]
     elseif length(pos) == 2
-        if findfirst("2*", pos[1]) != nothing
+        if findfirst("2*", pos[1]) !== nothing
             pos[1] = replace(pos[1], "2*" => "")
             pos = [pos[1], pos[1], pos[2]]
         end
-        if findfirst("2*", pos[2]) != nothing
+        if findfirst("2*", pos[2]) !== nothing
             pos[2] = replace(pos[2], "2*" => "")
             pos = [pos[1], pos[2], pos[2]]
         end
@@ -532,8 +532,8 @@ function _patch2(id, patch_dict, snap; memmap=1, verbose=0)
     patch["aux"] = Dict()
     patch["data"] = Dict()
     patch["keys"] = Dict()
-    patch["keys"]["letters"] = collect(keys(snap["idx"]))
-    patch["keys"]["numbers"] = collect(values(snap["idx"]))
+    patch["keys"]["letters"] = collect(keys(snap["idx"]["dict"]))
+    patch["keys"]["numbers"] = collect(values(snap["idx"]["dict"]))
     patch["keys"]["known"] = ["d","lnd","logd","ux","uy","uz","u1","u2","u3",
                                 "ee","E","T","eth", "Eth", "ekin", "emag", "S"]
 

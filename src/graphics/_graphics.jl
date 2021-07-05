@@ -1,10 +1,13 @@
 using Plots, LaTeXStrings
 using PyPlot: streamplot, imshow, figure
-import Makie
+#import Makie
+import GLMakie
 using JuliaDispatch.Utils, JuliaDispatch.Buffers
 using JuliaDispatch.Select
 using JuliaDispatch.Dispatch: snapshot
+GLMakie.activate!()
 gr()
+
 default(:size, (1200, 800))
 
 
@@ -305,7 +308,8 @@ function sliceplot(snap::Dict,
 
     end
 
-    if !isnothing(kw[:resampledims]) || kv[:resample]
+
+    if !isnothing(kv[:resampledims]) || kv[:resample]
         newdims = nothing
         if isnothing(kv[:resampledims])
             newdims = kv[:dims]
@@ -316,9 +320,6 @@ function sliceplot(snap::Dict,
         d1, d2, data = resample(d1, d2, data, newdims)
     end
 
-    # if isnothing(kv[:label], nothing)
-    #     kv[:label] = get_unit(snap, iv)
-    # end
 
     hm = nothing
     if string(kv[:style]) == "streamplot"
@@ -492,7 +493,7 @@ function anim_pane(snap; ax=1, nframes=10, unigrid=true, kw...)
     gif(anim, "testgif2.gif", fps=20)
 end
 
-function volume(snap::Dict; iv = 0, kw...)
+function volume(snap::Dict; iv = 0, unigrid=true, kw...)
     """ Plot a 3D volume of the given quantity iv """
 
     kw = Dict(kw)
@@ -512,12 +513,12 @@ function volume(snap::Dict; iv = 0, kw...)
     start = origin .- size_/2
     stop = origin .+ size_/2
 
-    if typeof(iv) <: AbstractArray
-        data = iv
+    if unigrid
+        data = unigrid_volume(snap, iv=iv)
     else
-        data = box_buffer(snap, iv=iv)
+        data = amr_volume(snap, iv=iv)
     end
-
+    
     nx, ny, nz = size(data)
 
     x = range(start[1], stop[1], length=nx)
@@ -526,7 +527,7 @@ function volume(snap::Dict; iv = 0, kw...)
 
 
     kv[:cmap] !== nothing ? cmap = kv[:cmap] : cmap = :viridis
-    scene = Makie.volume(x, y, z, data, colormap=cmap, isovalue=1)
+    scene = GLMakie.volume(x, y, z, data, colormap=cmap, isovalue=1)
     kv[:title] !== nothing ? Makie.title(scene, kv[:title]) : nothing
 
     # if kv[:grids]

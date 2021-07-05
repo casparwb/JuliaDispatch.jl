@@ -1,5 +1,5 @@
 using FFTW, KernelDensity
-include("_dispatch.jl")
+using JuliaDispatch.Utils: get_n_snapshots
 
 function power_spectrum2d(data; kw...)
     #kw = Dict(kw)
@@ -203,23 +203,21 @@ end
 
 Return a stacked kernel density estimate of quantity `iv` in each plane perpendicular to axis `dir`.
 
-Arguments:
------------
-    - snap: Dict, snapshot object
-    - N:    Int, number of plane slices
+# Arguments:
+- `snap::Dict`: snapshot object
+- `N::Int`: number of plane slices
 
-Kwargs:
------------
-    - iv:    Int/String, variable name, default 0
-    - dir:   Int, axis at which to slice data, default 3 (z)
-    - nbins: Int, number of histogram bins, default 50
-    - Log:   Bool, whether to return log of x-axis, default false
-    - all:   Bool, whether to include guard zones, default false
-Returns:
-----------
-    - Array{Float, 1} of length nbins, binned data values in ascending order
-    - Array{Float, 1} of length N, axis values for axis dir
-    - Array{Float, 2} of size (N, nbins), kernel density at each plane
+# Kwargs:
+- `iv::Union{Int, String}`: variable name, default 0
+- `dir::Int`: axis at which to slice data, default 3 (z)
+- `nbins::Int`: number of histogram bins, default 50
+- `Log::Bool`: whether to return log of x-axis, default false
+- `all::Bool`: whether to include guard zones, default false
+
+# Returns:
+- Array{Float, 1} of length nbins, binned data values in ascending order
+- Array{Float, 1} of length N, axis values for axis dir
+- Array{Float, 2} of size (N, nbins), kernel density at each plane
 """
 function stacked_density(snap::Dict, N::Int; iv=0, dir = 3, all=false, nbins=50,
                          Log = false)

@@ -140,7 +140,6 @@ function snapshot(iout=0; run="", data="../data", verbose = 0, copy = false, mem
     #     patch_dict = read_patch_metadata(iout, run, data, statedict["mpi_size"], verbose=verbose)
     #     push!(save, patch_dict)
     # end
-
     if !haskey(statedict, "mpi_size")
         statedict["mpi_size"] = 1
     end
@@ -266,100 +265,100 @@ end # function
 
 
 
-function parse_patches(snap::Dict, file="../data/00000/rank_00000_patches.nml")
+# function parse_patches(snap::Dict, file="../data/00000/rank_00000_patches.nml")
 
-    prop_dict = Dict{Int16, Dict}()
+#     prop_dict = Dict{Int16, Dict}()
 
-    nml_version = 1
-    nbor_info = nothing
+#     nml_version = 1
+#     nbor_info = nothing
 
-    if "params_list" in keys(snap)
-        params_list = snap[params_list]
+#     if "params_list" in keys(snap)
+#         params_list = snap[params_list]
 
-        if "io_params" in params_list
-            io_params = params_list["io_params"]
+#         if "io_params" in params_list
+#             io_params = params_list["io_params"]
 
-            if "nml_version" in io_params
-                nml_version = io_params["nml_version"]
-            end
-        end
-    end
+#             if "nml_version" in io_params
+#                 nml_version = io_params["nml_version"]
+#             end
+#         end
+#     end
 
-    if nml_version > 1
-        patches_nml = read_nml(file)
-        if "nbor_nml" in keys(patches_nml)
-            nblor_nml = patches_nml["nbor_nml"]
-            nbor_info = Dict()
-            for nb in nbor_nml
-                id = nb["id"]
-                parents_id = nb["parent_id"]
-                nbor_ids = nb["nbor_ids"]
-                nbor_info[id] = Dict("parent_id" => parent_id,
-                                     "nbor_ids"  => nbor_ids )
-            end
-        end
-    end
-    open(file, "r") do fo
-        watch_block = false
-        d = nothing
-        id = nothing
-        @inbounds for line in eachline(fo)
-            # strip commas and equal sign from line and split
-            line = replace(
-                   replace(
-                   replace(line, "=" => " "), "," => ""), "''" => " ")
-            items = split(line)
-            if length(items) == 0
-                nothing
-            elseif items[1] == "&PATCH_NML"
-                d = Dict{String, Any}()
-                watch_block = true
-            elseif items[1] == "ID"
-                id = parse(Int, items[2])
-            elseif items[1] == "POSITION"
-                d["position"] = _parse_namelist(items)
-            elseif items[1] == "SIZE"
-                d["size"] = _parse_namelist(items)
-                if "n" in keys(snap)
-                    n = snap["n"]
-                else
-                    n = 1
-                end
-                if !("ds" in keys(d))
-                    if snap["no_mans_land"]
-                        d["ds"] = d["size"]./n
-                    else
-                        d["ds"] = d["size"]./([(snap["n"] - 1) > 1 ? (snap["n"] - 1) : 1])
-                    end
-                end
-            elseif items[1] == "LEVEL"
-                d["level"] = parse(Int32, items[2])
-            elseif items[1] == "DTIME"
-                d["dtime"] = parse(Float64, items[2])
-            elseif items[1] == "TIME"
-                d["time"] = parse(Float64, items[2])
-            elseif items[1] == "ISTEP"
-                d["istep"] = parse(Int32, items[2])
-            elseif items[1] == "DS"
-                d["ds"] = _parse_namelist(items)
-            elseif items[1] == "MESH_TYPE"
-                d["mesh_type"] = parse(Int32, items[2])
-            elseif items[1] == "NCELL"
-                d["ncell"] = _parse_namelist(items)
-            elseif items[1] == "KIND"
-                d["kind"] = items[2]
-            elseif items[1] == "/" && watch_block # the final entry of a namelist is always "/"
-                if nbor_info !== nothing
-                    d["parent_id"]=nbor_info[id]["parent_id"]
-                    d["nbor_ids"]=nbor_info[id]["nbor_ids"]
-                end
-                prop_dict[id]=d
-                watch_block = false
-            end
-        end # end eachline
-    end # end open
-    return prop_dict
-end # end parse_patches
+#     if nml_version > 1
+#         patches_nml = read_nml(file)
+#         if "nbor_nml" in keys(patches_nml)
+#             nblor_nml = patches_nml["nbor_nml"]
+#             nbor_info = Dict()
+#             for nb in nbor_nml
+#                 id = nb["id"]
+#                 parents_id = nb["parent_id"]
+#                 nbor_ids = nb["nbor_ids"]
+#                 nbor_info[id] = Dict("parent_id" => parent_id,
+#                                      "nbor_ids"  => nbor_ids )
+#             end
+#         end
+#     end
+#     open(file, "r") do fo
+#         watch_block = false
+#         d = nothing
+#         id = nothing
+#         @inbounds for line in eachline(fo)
+#             # strip commas and equal sign from line and split
+#             line = replace(
+#                    replace(
+#                    replace(line, "=" => " "), "," => ""), "''" => " ")
+#             items = split(line)
+#             if length(items) == 0
+#                 nothing
+#             elseif items[1] == "&PATCH_NML"
+#                 d = Dict{String, Any}()
+#                 watch_block = true
+#             elseif items[1] == "ID"
+#                 id = parse(Int, items[2])
+#             elseif items[1] == "POSITION"
+#                 d["position"] = _parse_namelist(items)
+#             elseif items[1] == "SIZE"
+#                 d["size"] = _parse_namelist(items)
+#                 if "n" in keys(snap)
+#                     n = snap["n"]
+#                 else
+#                     n = 1
+#                 end
+#                 if !("ds" in keys(d))
+#                     if snap["no_mans_land"]
+#                         d["ds"] = d["size"]./n
+#                     else
+#                         d["ds"] = d["size"]./([(snap["n"] - 1) > 1 ? (snap["n"] - 1) : 1])
+#                     end
+#                 end
+#             elseif items[1] == "LEVEL"
+#                 d["level"] = parse(Int32, items[2])
+#             elseif items[1] == "DTIME"
+#                 d["dtime"] = parse(Float64, items[2])
+#             elseif items[1] == "TIME"
+#                 d["time"] = parse(Float64, items[2])
+#             elseif items[1] == "ISTEP"
+#                 d["istep"] = parse(Int32, items[2])
+#             elseif items[1] == "DS"
+#                 d["ds"] = _parse_namelist(items)
+#             elseif items[1] == "MESH_TYPE"
+#                 d["mesh_type"] = parse(Int32, items[2])
+#             elseif items[1] == "NCELL"
+#                 d["ncell"] = _parse_namelist(items)
+#             elseif items[1] == "KIND"
+#                 d["kind"] = items[2]
+#             elseif items[1] == "/" && watch_block # the final entry of a namelist is always "/"
+#                 if nbor_info !== nothing
+#                     d["parent_id"]=nbor_info[id]["parent_id"]
+#                     d["nbor_ids"]=nbor_info[id]["nbor_ids"]
+#                 end
+#                 prop_dict[id]=d
+#                 watch_block = false
+#             end
+#         end # end eachline
+#     end # end open
+#     return prop_dict
+# end # end parse_patches
 
 function _parse_namelist(items)
 
@@ -452,7 +451,7 @@ function _patch2(id, patch_dict, snap; memmap=1, verbose=0)
 
     # if a short variant of the patch metadata does not has ds, compute it
     if !haskey(patch_dict, "ds")
-        patch["ds"] = patch["size"]/patch["n"]
+        patch["ds"] = patch["size"] ./ patch["n"]
     end 
 
     if !patch["guard_zones"]

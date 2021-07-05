@@ -373,7 +373,7 @@ module Select
             ui = patch["n"]
         end
 
-        f = patch["var"](iv)[li[1]:ui[1], li[2]:ui[2], li[3]:ui[3]]
+        f = patch["var"](iv)#[li[1]:ui[1], li[2]:ui[2], li[3]:ui[3]]
 
         return f
     end

@@ -22,8 +22,8 @@ This might take a while as Julia has to precompile the package.
 
 The _JuliaDispatch_ package contains multiple submodules each of which contains functions and methods for performing various tasks, such as reading in a snapshot, visualization, and data buffering. The full list of modules is
 
-* _Dispatch_: this submodule contains the `snapshot(...)` function which allows reading in a snapshot and saving all the metadata into a dictionary.
-* _Graphics_: high-level plotting of slices (planes), volumes, and 1-d quantities.
-* _Buffers_: methods for stitching together patch data into 2- or 3-dimensional arrays, in addition to resampling methods for re-sizing the domain.
-* _Select_: methods for extracting patches and data at given positions in the computational domain.
-* DispatchUtils: 
+* __Dispatch__: this submodule contains the `snapshot(...)` function which allows reading in a snapshot and saving all the metadata into a dictionary.
+* __Graphics__: high-level plotting of slices (planes), volumes, and 1-d quantities.
+* __Buffers__: methods for stitching together patch data into 2- or 3-dimensional arrays, in addition to resampling methods for re-sizing the domain.
+* __Select__: methods for extracting patches and data at given positions in the computational domain.
+* __DispatchUtils__: 

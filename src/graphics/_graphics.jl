@@ -1,19 +1,14 @@
 using Plots, LaTeXStrings
 using PyPlot: streamplot, imshow, figure
 #import Makie
-#import GLMakie
+import WGLMakie
 using JuliaDispatch.Utils, JuliaDispatch.Buffers
 using JuliaDispatch.Select
 using JuliaDispatch.Dispatch: snapshot
-#GLMakie.activate!()
+WGLMakie.activate!()
 gr()
 
 default(:size, (1200, 800))
-
-
-#include("../select/_select.jl")
-#include("utils.jl")
-#include("../select/buffers.jl")
 
 
 """ 
@@ -550,9 +545,9 @@ function volume(snap::Dict; iv = 0, unigrid=true, kw...)
     z = range(start[3], stop[3], length=nz)
 
 
-    kv[:cmap] !== nothing ? cmap = kv[:cmap] : cmap = :viridis
-    scene = GLMakie.volume(x, y, z, data, colormap=cmap, isovalue=1)
-    kv[:title] !== nothing ? Makie.title(scene, kv[:title]) : nothing
+    # kv[:cmap] !== nothing ? cmap = kv[:cmap] : cmap = :viridis
+    scene = WGLMakie.volume(x, y, z, data)
+    # kv[:title] !== nothing ? Makie.title(scene, kv[:title]) : nothing
 
     # if kv[:grids]
     #     for patch in snap["patches"]
@@ -580,3 +575,23 @@ function anim_plane(;data="../data", run="", x = nothing, y = nothing, z = nothi
 
 end
 
+function animate_volume(;data="../data", run="", iv=0, unigrid=true, savepath=".")
+
+    if unigrid
+        data = unigrid_volume(snap, iv=iv)
+    else
+        data = amr_volume(snap, iv=iv)
+    end
+
+
+    nsnaps = get_n_snapshots(data=data, run=run)
+    snap0 = snapshot(0, data=data, run=data)
+
+    scene = WGLMakie.volume(data)
+    vol_plot = scene[end]
+
+    record(savepath, 2:nsnaps-1) do i
+        vol_plot[1] = unigrid_volume(snapshot(i, data=data, run=run), iv=iv)
+    end
+
+end

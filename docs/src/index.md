@@ -27,3 +27,9 @@ The _JuliaDispatch_ package contains multiple submodules each of which contains 
 * __Buffers__: methods for stitching together patch data into 2- or 3-dimensional arrays, in addition to resampling methods for re-sizing the domain.
 * __Select__: methods for extracting patches and data at given positions in the computational domain.
 * __DispatchUtils__: 
+
+All of these modules can imported into the workspace by typing (after having imported the `JuliaDispatch` module))
+
+`julia> using JuliaDispatch.ModuleName`
+
+where `ModuleName` is replaced with any of the abovementioned submodules.

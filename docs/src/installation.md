@@ -1,4 +1,4 @@
-# Overview
+<!-- # Overview
 
 _JuliaDispatch.jl_ is a package developed for analysis and visualization of simulations from the Dispatch framework.
 
@@ -26,4 +26,4 @@ The _JuliaDispatch_ package contains multiple submodules each of which contains 
 * _Graphics_: high-level plotting of slices (planes), volumes, and 1-d quantities.
 * _Buffers_: methods for stitching together patch data into 2- or 3-dimensional arrays, in addition to resampling methods for re-sizing the domain.
 * _Select_: methods for extracting patches and data at given positions in the computational domain.
-* DispatchUtils: 
+* DispatchUtils:  -->

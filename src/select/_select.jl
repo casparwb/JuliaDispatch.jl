@@ -4,19 +4,25 @@ module Select
            patch_at, is_inside, corner_indices, patches_in, box, plane
 
     using StaticArrays
-    function values_along(pp, point=[0.5, 0.5, 0.5];
-                        dir=1, iv=0, var=nothing, verbose = 0, all = 0)
-        """
-        Return s,f(s) with s the coordinates and f the values in the iv
-        slot of data, taken along the direction v -- so far restricted
-        to axis values
-        """
+    """
+        values_along(snap::Dict, point=[0.5, 0.5, 0.5]; dir=1, iv=0, var=nothing,
+                     verbose = 0, all = false)
+    
 
-        "patches" in keys(pp) ? pp = pp["patches"] : nothing
+    Return s,f(s) with s the coordinates and f the values in the iv
+    slot of data, taken along the direction v -- so far restricted
+    to axis values
+    """
+    function values_along(snap, point=[0.5, 0.5, 0.5];
+                        dir=1, iv=0, var=nothing, verbose = 0, all = false)
+                        
+        if haskey(snap, "patches")
+            snap = snap["patches"]
+        end
 
-        patches = patches_along(pp, point, dir = dir, verbose = verbose)
+        patches = patches_along(snap, point, dir = dir, verbose = verbose)
 
-        if patches == nothing
+        if isnothing(patches)
             throw(ErrorException("no patches found in [$(point[1]), $(point[2]), $(point[3])]"))
         end
 
@@ -54,25 +60,23 @@ module Select
 
         return patches
     end
+    
+    """
+        values_in(p, point = [0.5, 0.5, 0.5]; dir = 1, iv = 0, i4 = 1, var = nothing, verbose = 0, all = false)
 
+
+    Return s, f(s) with s the coordinates and f the values in the iv
+    slot of data, taken along the direction v -- so far restricted to
+    axis values
+    """
     function values_in(p, point = [0.5,0.5,0.5];
-                        dir = 1, iv = 0, i4 = 1, var = nothing, verbose = 0, all = 0)
-        """
-        Return s, f(s) with s the coordinates and f the values in the iv
-        slot of data, taken along the direction v -- so far restricted to
-        axis values
-        """
+                        dir = 1, iv = 0, i4 = 1, var = nothing, verbose = 0, all = false)
 
 
         ss, ff = [], []
 
         ii, w = indices_and_weights(p, point, iv)
         data = p["var"](iv, i4=i4, all=all, verbose=verbose)
-
-        # ijk = p["gn"] .> 1 ?
-        # ijk[1] == 1 ? ione = 1 : ione = 0
-        # ijk[2] == 1 ? jone = 1 : jone = 0
-        # ijk[3] == 1 ? kone = 1 : kone = 0
 
         # +1 because of julia 1-indexing
         ione = (0, 1)[(p["gn"][1] > 1) + 1]
@@ -87,6 +91,7 @@ module Select
             m = @SVector ones(Int32, 3)
             n = p["gn"]
         end
+
 
         if typeof(var) <: String
             iv = p["idx"]["dict"][var]
@@ -306,8 +311,11 @@ module Select
             i = min(i, ui[1]-1)
             p -= i
 
-            f = variv[i, li[2]:ui[2], li[3]:ui[3]]*(1.0 - p) +
-                variv[i+1, li[2]:ui[2], li[3]:ui[3]]*p
+            # f = variv[i, li[2]:ui[2], li[3]:ui[3]]*(1.0 - p) +
+            #     variv[i+1, li[2]:ui[2], li[3]:ui[3]]*p
+
+            f = variv[i, :, :]*(1.0 - p) +
+                variv[i+1, :, :]*p
 
         elseif !isnothing(y)
             p = (y - patch["y"][1])/patch["ds"][2]

@@ -1,11 +1,11 @@
 using Plots, LaTeXStrings
 using PyPlot: streamplot, imshow, figure
 #import Makie
-import GLMakie
+#import GLMakie
 using JuliaDispatch.Utils, JuliaDispatch.Buffers
 using JuliaDispatch.Select
 using JuliaDispatch.Dispatch: snapshot
-GLMakie.activate!()
+#GLMakie.activate!()
 gr()
 
 default(:size, (1200, 800))
@@ -16,50 +16,68 @@ default(:size, (1200, 800))
 #include("../select/buffers.jl")
 
 
+""" 
+    plot_values_along(snap::Dict, pt::Array=[0.5, 0.5, 0.5]; iv=0, dir=1, kw...)
+
+Plot values of quantity `iv` along direction `dir={1,2,3}` (x, y, z), through point `pt=[x,y,z]`. 
+
+Accepts any keyword arguments supported by the `plot`-function exported from Plots.GR(). See 
+[documentation](https://docs.juliaplots.org/latest/generated/gr/) for a complete list.
+
+# Examples
+``` 
+julia> plot_values_along(snap, iv="ekin", linestyle=:scatter, xlabel="x", ylabel="y")
+julia> plot_values_along(snap, iv="T", dir=3, style=:dot, label="Temperature")
+julia> plot_values_along(snap, [0.0, 1.0, 2.0], iv="ekin", title="Kinetic Energy")
+```
+"""
 function plot_values_along(snap::Dict, pt=[0.5, 0.5, 0.5]; kw...)
-    """ Plot values along direction dir={1,2,3}, through point pt=[x,y,z] """
     kw = Dict(kw)
-    kv = Dict{Symbol, Any}(:dir => 1, :verbose => 0,
+    # kv = Dict{Symbol, Any}(:dir => 1, :verbose => 0,
+    #                        :all => false, :iv => 0,
+    #                        :i4 => 0, :label => false,
+    #                        :ylabel => 0, :xlabel => 0,
+    #                        :title => 0, :style=> "line",
+    #                        :norm => false, :bins => :auto)
+
+    kv = Dict{Symbol, Any}(:verbose => 0,
                            :all => false, :iv => 0,
-                           :i4 => 0, :label => false,
-                           :ylabel => 0, :xlabel => 0,
-                           :title => 0, :style=> "line",
-                           :norm => false, :bins => :auto)
+                           :i4 => 0)
 
     _kw_extract(kw, kv)
 
-    data = values_along(snap, pt, iv=kv[:iv], dir=kv[:dir], all=kv[:all])
+    data = values_along(snap, pt, iv=kv[:iv], dir=kv[:dir], all=kv[:all], verbose=kv[:verbose])
 
-    if kv[:ylabel] == 0
-        kv[:ylabel] = get_unit(snap, kv[:iv])
-    end
+    # if kv[:ylabel] == 0
+    #     kv[:ylabel] = get_unit(snap, kv[:iv])
+    # end
 
     time = round(snap["time"], digits=2)
-    plt = plot(data, label=kv[:label], st=kv[:style],
-               normalize=kv[:norm], bins=kv[:bins])
+    # plt = plot(data, label=kv[:label], st=kv[:style],
+    #            normalize=kv[:norm], bins=kv[:bins])
+    plt = plot(data; kw...)
+    # if kv[:xlabel] == 0
+    #     if kv[:dir] == 1
+    #         dir = "x"
+    #         xlabel!("x")
+    #     elseif kv[:dir] == 2
+    #         dir = "y"
+    #         xlabel!("y")
+    #     elseif kv[:dir] == 3
+    #         dir = "z"
+    #         xlabel!("z")
+    #     end
+    # else
+    #     xlabel!(kv[:xlabel])
+    # end
 
-    if kv[:xlabel] == 0
-        if kv[:dir] == 1
-            dir = "x"
-            xlabel!("x")
-        elseif kv[:dir] == 2
-            dir = "y"
-            xlabel!("y")
-        elseif kv[:dir] == 3
-            dir = "z"
-            xlabel!("z")
-        end
-    else
-        xlabel!(kv[:xlabel])
-    end
+    # # ylabel!(kv[:ylabel])
 
-    # ylabel!(kv[:ylabel])
+    # if kv[:title] != 0
+    #     title!(kv[:title])
+    # end
 
-    if kv[:title] != 0
-        title!(kv[:title])
-    end
-
-    plt
+    # plt
 
 end
 
@@ -235,24 +253,37 @@ function sliceplot(d1, d2, data::Array{T, 2} where T;
 
 end
 
+
+"""
+    sliceplot(snap::Dict; x = nothing, y = nothing, z = nothing, unigrid = true, kw...)
+
+
+Make a sliceplot of quantity ´iv´ at the given coordinate. Accepts any keyword argument
+supported by the `Plots.plot()` function, in addition to
+
+# Arguments
+- `iv::Union{Int, String, Char}`: what quantity to plot. Default `0`.
+- `grids::Bool`: whether to show patch grids. Default `false`.
+- `width::Tuple{Int, Int}`: width of the sub-domain axes. Default `nothing` (whole slice is plotted). 
+- `center::Tuple{Int, Int}`:  where to center the plot. Default `nothing` (center is not moved)
+- `resample::Union{Int, Tuple}`: whether to resample (upscale or downscale) slice. Default `nothing`. Can
+                                  be `Int` or `Tuple` of new dimensions.
+- `dims::Union{Tuple{Int, Int}, Int}`: size of interpolated slice if experiment uses adaptive mesh-refinement. 
+                                       Can be either tuple indicating size in each dimension, or
+                                       an integer indicating same size for both dimensions. Default `300`.
+
+
+
+"""
 function sliceplot(snap::Dict,
                   ;x = nothing, y = nothing, z = nothing, unigrid=true,
                   kw...)
-    """
-    Make a sliceplot at the given coordinate.
-    Input:
-    -----------------
-    snap: dict, snapshot
-    x, y, z: float, at what coordinate to slice
-    """
 
     kw = Dict(kw)
+
     kv = Dict{Symbol, Any}(:verbose => 0, :iv => 0,
-                           :grids => false, :cmap => :auto,
-                           :title => "", :label => nothing,
-                           :style => :heatmap, :fill => true,
+                           :grids => false,
                            :width => nothing, :dims => 300,
-                           :xlabel => nothing, :ylabel => nothing,
                            :center => nothing, :resample => false,
                            :resampledims => nothing)
 
@@ -260,10 +291,13 @@ function sliceplot(snap::Dict,
     iv = kv[:iv]
     verbose = kv[:verbose]
 
+    # get the axis where to slice and the resulting plane
     xyz = [x, y, z]
     dirs = [(x, "x", 1), (y, "y", 2), (z, "z", 3)]
     axis = getindex(dirs, xyz .!= nothing)[1]
     planeDirs = getindex(dirs, xyz .== nothing)
+
+    verbose > 1 && println("Sliceplot through $(axis[2]) in plane $((planeDirs[1][2], planeDirs[2][2]))")
 
     origin = copy(snap["cartesian"]["origin"])
     Size = copy(snap["cartesian"]["size"])
@@ -272,32 +306,36 @@ function sliceplot(snap::Dict,
 
     if unigrid
         data = unigrid_plane(snap, iv=iv, x=x, y=y, z=z)
-        Bool(verbose) ? println("Unigrid data with shape $(size(data))") : nothing
+        verbose >= 1 && println("Unigrid data with shape $(size(data))")
     else
         data = amr_plane(snap, iv=iv, x=x, y=y, z=z, dims=kv[:dims])
         data = data'
-        Bool(verbose) ? println("Mesh refined data with shape $(size(data))") : nothing
+        verbose >= 1 && println("Mesh refined data with shape $(size(data))")
     end
 
+    # plane axes
     d1 = range(origin[1], origin[1]+Size[1], length=size(data)[1])
     d2 = range(origin[2], origin[2]+Size[2], length=size(data)[2])
 
+    # check if width is given
     wflag = false
-    if kv[:width] != nothing
+    if kv[:width] !== nothing
         width = kv[:width]
         wflag = true
     else
         width = Size
     end
 
+    # check if center is given
     cflag = false
-    if kv[:center] != nothing
+    if kv[:center] !== nothing
         center = kv[:center]
         cflag = true
     else
         center = origin .+ width
     end
 
+    # realign data if new width of center is given
     if wflag || cflag
         idxs1 = findall(abs.(d1 .- center[1]) .<= width[1])
         idxs2 = findall(abs.(d2 .- center[2]) .<= width[2])
@@ -308,30 +346,16 @@ function sliceplot(snap::Dict,
 
     end
 
-
-    if !isnothing(kv[:resampledims]) || kv[:resample]
-        newdims = nothing
-        if isnothing(kv[:resampledims])
-            newdims = kv[:dims]
-        else
-            newdims = kv[:resampledims]
-        end
-        Bool(verbose) && println("Resampling to size $newdims")
+    # resample data if given
+    if !isnothing(kv[:resample])
+        newdims =  kv[:resample]
+        verbose >= 1 && println("Resampling to size $newdims")
         d1, d2, data = resample(d1, d2, data, newdims)
     end
 
 
-    hm = nothing
-    if string(kv[:style]) == "streamplot"
-        return streamplot_(d1, d2, data)
-    else
-        hm = plot(d1, d2, data,
-                  st=kv[:style],
-                  colorbar_title=kv[:label],
-                  c=kv[:cmap],
-                  fill=kv[:fill])
-    end
-
+    hm = plot(d1, d2, data'; kw...)
+    #hm = plot(data; kw...)
     if kv[:grids]
         i = axis[3]
         patches = patches_in(snap, x=x, y=y, z=z)
@@ -341,34 +365,34 @@ function sliceplot(snap::Dict,
             x = [e[1], e[1], e[2], e[2], e[1]]
             y = [e[3], e[4], e[4], e[3], e[3]]
 
-            plot!(x, y, color=:gray, label=false)
+            plot!(hm, x, y, color=:gray, label=false)
         end
     end
 
-    if kv[:title] == ""
-        pos = (axis[2], axis[1])
-        time = round(snap["time"], digits=2)
-        title!("$(pos[1]) = $(pos[2]), t = $time, iv=$iv")
-    elseif typeof(kv[:title]) <: String
-        title!(kv[:title])
-    end
+    # if kv[:title] == ""
+    #     pos = (axis[2], axis[1])
+    #     time = round(snap["time"], digits=2)
+    #     title!("$(pos[1]) = $(pos[2]), t = $time, iv=$iv")
+    # elseif typeof(kv[:title]) <: String
+    #     title!(kv[:title])
+    # end
 
 
-    if kv[:xlabel] !== nothing
-        xlabel = kv[:xlabel]
-    else
-        xlabel = planeDirs[1][2]
-    end
+    # if kv[:xlabel] !== nothing
+    #     xlabel = kv[:xlabel]
+    # else
+    #     xlabel = planeDirs[1][2]
+    # end
 
-    if kv[:ylabel] !== nothing
-        ylabel = kv[:ylabel]
-    else
-        ylabel = planeDirs[2][2]
-    end
+    # if kv[:ylabel] !== nothing
+    #     ylabel = kv[:ylabel]
+    # else
+    #     ylabel = planeDirs[2][2]
+    # end
 
 
-    xlabel!(xlabel)
-    ylabel!(ylabel)
+    # xlabel!(xlabel)
+    # ylabel!(ylabel)
 
     return hm
 

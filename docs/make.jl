@@ -1,5 +1,6 @@
 using Documenter
 using JuliaDispatch
+using JuliaDispatch.Dispatch
 
 makedocs(
     sitename = "JuliaDispatch",

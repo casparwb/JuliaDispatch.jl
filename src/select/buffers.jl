@@ -2,7 +2,7 @@ module Buffers
 
 export init_buffer, amr_plane, amr_volume, unigrid_plane, unigrid_volume, resample
 
-using JuliaDispatch.Select, JuliaDispatch.Interpolations
+using JuliaDispatch.Select, JuliaDispatch.Interpolations, Unitful
 import Interpolations
 const Itp = Interpolations
 
@@ -40,22 +40,22 @@ function init_buffer(snap, iv, dims, ndims)
         datashp = dims
     end
 
-    buffer = Dict{Union{String, Int}, Array{Float32, ndims}}()
+    buffer = Dict{Union{String, Int}, Array{Quantity{Float32}, ndims}}()
     if typeof(iv) <: String && iv == "all"
         ivs = [k for (k, iv) in snap["idx"]
                if (typeof(iv) <: Int && iv > 0)]
 
         for iv in ivs
-            buffer[iv] = Array{Float32, ndims}(undef, datashp...)
+            buffer[iv] = Array{Float32, ndims}(undef, datashp...)u"m/s"
         end
     elseif typeof(iv) <: Array
         ivs = iv
         for iv_ in iv
-            buffer[iv_] = Array{Float32, ndims}(undef, datashp...)
+            buffer[iv_] = Array{Float32, ndims}(undef, datashp...)u"m/s"
         end
     else
         ivs = [iv]
-        buffer[iv] = Array{Float32, ndims}(undef, datashp...)
+        buffer[iv] = Array{Float32, ndims}(undef, datashp...)u"m/s"
     end
 
     return buffer
@@ -63,30 +63,30 @@ function init_buffer(snap, iv, dims, ndims)
 end
 
 """
-amr_plane(snap::Dict; iv::Union{Int, String}, x::Float, y::Float, z::Float,
-          Log::Bool, dims::Union{Int, Tuple})
+    amr_plane(snap::Dict; iv::Union{Int, String}, x::Float, y::Float, z::Float,
+             Log::Bool, dims::Union{Int, Tuple})
 
 Return an interpolated 2d buffer of mesh-refined patch data with at a slice
 x/y/z, with dimensions dims.
 
-Arguments:
------------
-    - snap: Dict, snapshot object
+# Arguments:
 
-Kwargs:
------------
-    - iv:      String/Int/Collection of String/Ints, what quantity(/ies) to extract, default 0
-    - x, y, z: Float, position at which to slice, default nothing
-    - all:     Bool, whether to include guard zones, default false
-    - Log:     Bool, whether to log the data, default false
-    - dims:    Int/Tuple, data size in each dimension. If Int,
-               both1 dimensions will have same length. If Tuple/Array,
-               must have length(dims) 2. Default 100
+- `snap::Dict`, snapshot object
 
-Returns:
------------
-    - Dictionairy of Array{Float32, 2} if iv is a collection,
-      or Array{Float32, 2} if iv is Int/String
+# Kwargs:
+
+- iv:      String/Int/Collection of String/Ints, what quantity(/ies) to extract, default 0
+- x, y, z: Float, position at which to slice, default nothing
+- all:     Bool, whether to include guard zones, default false
+- Log:     Bool, whether to log the data, default false
+- dims:    Int/Tuple, data size in each dimension. If Int,
+            both1 dimensions will have same length. If Tuple/Array,
+            must have length(dims) 2. Default 100
+
+# Returns:
+
+- Dictionairy of Array{Float32, 2} if iv is a collection,
+    or Array{Float32, 2} if iv is Int/String
 """
 function amr_plane(snap; iv = 0, x = nothing, y = nothing, z = nothing,
                    Log = false, dims::Union{Int, Tuple}=100)
@@ -250,13 +250,13 @@ function unigrid_plane(snap::Dict; x = nothing, y = nothing, z = nothing,
 
     xyz = [x, y, z]
     ax = getindex((1, 2, 3), xyz .!= nothing)[1]
-
+    println(ax)
     patches = patches_in(snap, x=x, y=y, z=z)
     if length(patches) == 0
       throw(ErrorException(" no patches found in [$x, $y, $z]"))
     end
 
-    verbose > 0 ? println("number of patches: $(length(patches))") : nothing
+    verbose > 0 && println("number of patches: $(length(patches))")
 
     n1, n2 = 0, 0
     patchDict = Dict{Int, Tuple{NTuple{4,Int64}, Dict}}()
@@ -274,15 +274,16 @@ function unigrid_plane(snap::Dict; x = nothing, y = nothing, z = nothing,
     end
     datashp = [n1, n2]
 
-    verbose == 1 ? println("data shape: $datashp") : nothing
+    verbose >= 1 && println("data shape: $datashp") 
 
     buffer = init_buffer(snap, iv, datashp, 2)
     for iv in keys(buffer)
+        #buffer[iv] = (buffer[iv])u"m/s"
         for (idxs, patch) in values(patchDict)
             im = plane(patch, x = x, y = y, z = z, iv = iv,
                        verbose=verbose, all=all)
 
-            buffer[iv][idxs[1]:idxs[2], idxs[3]:idxs[4]] = im
+            buffer[iv][idxs[1]:idxs[2], idxs[3]:idxs[4]] = (im)u"m/s"
         end
     end
 

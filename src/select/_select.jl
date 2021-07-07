@@ -321,9 +321,13 @@ module Select
             p = (y - patch["y"][1])/patch["ds"][2]
             i = round(Int, p)
             i = min(i, ui[2]-1)
-            p = p - i
-            f = transpose(variv[li[1]:ui[1], i  , li[3]:ui[3]]*(1.0-p) +
-                          variv[li[1]:ui[1], i+1, li[3]:ui[3]]*p)
+            p -= i
+            # f = transpose(variv[li[1]:ui[1], i  , li[3]:ui[3]]*(1.0-p) +
+            #               variv[li[1]:ui[1], i+1, li[3]:ui[3]]*p)
+            # f = transpose(variv[:, i  , :]*(1.0-p) +
+            #               variv[:, i+1, :]*p)
+            f = (variv[:, i  , :]*(1.0-p) +
+                          variv[:, i+1, :]*p)
 
         elseif !isnothing(z)
             p = (z - patch["z"][1])/patch["ds"][3]
@@ -346,7 +350,7 @@ module Select
             end
         end
 
-        Bool(verbose) ? println("plane: $i, p = $i $p") : nothing
+        verbose >= 1 && println("plane: $i, p = $i $p")
 
         return f
 

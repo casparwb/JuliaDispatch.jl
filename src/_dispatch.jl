@@ -1,4 +1,4 @@
-using PyCall, Printf, Mmap, StaticArrays, JLD
+using PyCall, Printf, Mmap, StaticArrays, JLD, Unitful
 using FStrings
 
 using JuliaDispatch.DispatchUtils
@@ -264,102 +264,6 @@ function read_nml(file; verbose=0)
 end # function
 
 
-
-# function parse_patches(snap::Dict, file="../data/00000/rank_00000_patches.nml")
-
-#     prop_dict = Dict{Int16, Dict}()
-
-#     nml_version = 1
-#     nbor_info = nothing
-
-#     if "params_list" in keys(snap)
-#         params_list = snap[params_list]
-
-#         if "io_params" in params_list
-#             io_params = params_list["io_params"]
-
-#             if "nml_version" in io_params
-#                 nml_version = io_params["nml_version"]
-#             end
-#         end
-#     end
-
-#     if nml_version > 1
-#         patches_nml = read_nml(file)
-#         if "nbor_nml" in keys(patches_nml)
-#             nblor_nml = patches_nml["nbor_nml"]
-#             nbor_info = Dict()
-#             for nb in nbor_nml
-#                 id = nb["id"]
-#                 parents_id = nb["parent_id"]
-#                 nbor_ids = nb["nbor_ids"]
-#                 nbor_info[id] = Dict("parent_id" => parent_id,
-#                                      "nbor_ids"  => nbor_ids )
-#             end
-#         end
-#     end
-#     open(file, "r") do fo
-#         watch_block = false
-#         d = nothing
-#         id = nothing
-#         @inbounds for line in eachline(fo)
-#             # strip commas and equal sign from line and split
-#             line = replace(
-#                    replace(
-#                    replace(line, "=" => " "), "," => ""), "''" => " ")
-#             items = split(line)
-#             if length(items) == 0
-#                 nothing
-#             elseif items[1] == "&PATCH_NML"
-#                 d = Dict{String, Any}()
-#                 watch_block = true
-#             elseif items[1] == "ID"
-#                 id = parse(Int, items[2])
-#             elseif items[1] == "POSITION"
-#                 d["position"] = _parse_namelist(items)
-#             elseif items[1] == "SIZE"
-#                 d["size"] = _parse_namelist(items)
-#                 if "n" in keys(snap)
-#                     n = snap["n"]
-#                 else
-#                     n = 1
-#                 end
-#                 if !("ds" in keys(d))
-#                     if snap["no_mans_land"]
-#                         d["ds"] = d["size"]./n
-#                     else
-#                         d["ds"] = d["size"]./([(snap["n"] - 1) > 1 ? (snap["n"] - 1) : 1])
-#                     end
-#                 end
-#             elseif items[1] == "LEVEL"
-#                 d["level"] = parse(Int32, items[2])
-#             elseif items[1] == "DTIME"
-#                 d["dtime"] = parse(Float64, items[2])
-#             elseif items[1] == "TIME"
-#                 d["time"] = parse(Float64, items[2])
-#             elseif items[1] == "ISTEP"
-#                 d["istep"] = parse(Int32, items[2])
-#             elseif items[1] == "DS"
-#                 d["ds"] = _parse_namelist(items)
-#             elseif items[1] == "MESH_TYPE"
-#                 d["mesh_type"] = parse(Int32, items[2])
-#             elseif items[1] == "NCELL"
-#                 d["ncell"] = _parse_namelist(items)
-#             elseif items[1] == "KIND"
-#                 d["kind"] = items[2]
-#             elseif items[1] == "/" && watch_block # the final entry of a namelist is always "/"
-#                 if nbor_info !== nothing
-#                     d["parent_id"]=nbor_info[id]["parent_id"]
-#                     d["nbor_ids"]=nbor_info[id]["nbor_ids"]
-#                 end
-#                 prop_dict[id]=d
-#                 watch_block = false
-#             end
-#         end # end eachline
-#     end # end open
-#     return prop_dict
-# end # end parse_patches
-
 function _parse_namelist(items)
 
     pos = items[2:end]
@@ -567,121 +471,6 @@ function _patch2(id, patch_dict, snap; memmap=1, verbose=0)
     return patch
 end # function
 
-
-# function _patch(id, patch_dict, snap, rank, verbose=0)
-
-#     patch = Dict()
-#     patch["id"] = id
-#     patch["rank"] = rank
-#     patch["memmap"] = 1
-
-#     # add general attributes from snapshot.nml
-#     for (k, v) in snap["dict"]
-#         patch[k] = v
-#     end
-
-#     for (k, v) in patch_dict
-#         patch[k] = v
-#     end
-
-#     if !patch["guard_zones"]
-#         patch["li"][:] .= 1
-#         patch["ui"][:] .= patch["n"]
-#     end
-
-#     if "idx" in keys(snap)
-#         patch["idx"] = snap["idx"]
-#         patch["idx"]["h"] = _h(patch)
-#     end
-
-#     # reconstruct items pruned from patch_nml
-
-#     if "size" in keys(patch) && "position" in keys(patch)
-#         llc = patch["position"] - patch["size"]/2.0
-#         urc = patch["position"] + patch["size"]/2.0
-
-#         patch["extent"] = reshape([llc[2] urc[2] llc[3] urc[3]
-#                                   llc[3] urc[3] llc[1] urc[1]
-#                                   llc[1] urc[1] llc[2] urc[2]], 3, 4)
-#         # patch["extent"] = SMatrix{3, 4, Float16}(llc[2], urc[2], llc[3], urc[3],
-#         #                                         llc[3], urc[3], llc[1], urc[1],
-#         #                                         llc[1], urc[1], llc[2], urc[2])
-#         patch["llc_cart"] = llc
-
-#     end
-
-#     if !("units" in keys(patch))
-#         if "units" in keys(snap)
-#             patch["units"] = snap["units"]
-#             if !("u" in keys(patch["units"]))
-#                 patch["units"]["u"] = patch["units"]["l"]/patch["units"]["t"]
-#             end
-#             if !("d" in keys(patch["units"]))
-#                 patch["units"]["d"] = patch["units"]["m"]/patch["units"]["l"]^3
-#             end
-#             if !("p" in keys(patch["units"]))
-#                 patch["units"]["p"] = patch["units"]["d"]/patch["units"]["u"]^2
-#             end
-#             if !("e" in keys(patch["units"]))
-#                 patch["units"]["e"] = patch["units"]["m"]/patch["units"]["u"]^2
-#             end
-#             if !("b" in keys(patch["units"]))
-#                 patch["units"]["b"] = patch["units"]["u"]*sqrt(4π*patch["units"]["d"])
-#             end
-#         end
-
-#     end
-
-#     # modify `mesh_type` from integer to string for readability
-#     if "mesh_type" in keys(patch)
-#         if patch["mesh_type"] == 1
-#             patch["mesh_type"] = "Cartesian"
-#         elseif patch["mesh_type"] == 2
-#             patch["mesh_type"] = "spherical"
-#         elseif patch["mesh_type"] == 3
-#             patch["mesh_type"] = "cylindrical"
-#         end
-#     end
-
-#     if strip(snap["io"]["method"]) == "legacy"
-#         patch["filename"] = snap["rundir"]*
-#                         "$(@sprintf("%05d/%05d", patch["iout"], patch["id"])).dat"
-#         patch["var"] = _var(patch, patch["filename"], snap, verbose=verbose)
-#     elseif strip(snap["io"]["method"]) == "background"
-#         patch["filename"] = snap["rundir"]*"$(@sprintf("%05d/snapshot_%05d.dat", patch["iout"], patch["rank"]))"
-#         self.var=_var(patch, patch["filename"],snap,verbose=verbose)
-#     else
-#         patch["var"] = _var(patch, snap["datafiled"], snap, verbose=verbose)
-#     end
-
-#     """ add a comprehensive set of variable keys """
-#     patch["aux"] = Dict()
-#     patch["data"] = Dict()
-#     patch["keys"] = Dict()
-#     patch["keys"]["letters"] = collect(keys(snap["idx"]))
-#     patch["keys"]["numbers"] = collect(values(snap["idx"]))
-#     patch["keys"]["known"] = ["d","lnd","logd","ux","uy","uz","u1","u2","u3",
-#                              "ee","E","T","eth","ekin"]
-
-
-#     # attach an aux filename, if one exists for this task
-#     auxfile = "/$(@sprintf("%05d", id)).aux"
-
-#     auxfile = snap["datadir"]*auxfile
-#     patch["auxfile"] = auxfile
-#     patch["aux"] = aux(id = id, rundir=snap["rundir"], datadir=snap["datadir"],
-#                        io = snap["iout"], file = auxfile, verbose=verbose)
-#     patch["keys"]["aux"] = collect(keys(patch["aux"]["vars"]))
-
-#     """ Collect all keys in a single array """
-#     all = []
-#     for key_list in values(patch["keys"])
-#         append!(all, key_list)
-#     end
-#     patch["all_keys"] = all
-
-#     return patch
-# end
 
 
 function _var(patch, filed, snap; verbose = 0, copy = nothing)
@@ -956,7 +745,7 @@ function _var(patch, filed, snap; verbose = 0, copy = nothing)
                 else
                     v = mem("p1") ./ var("d", all=true, verbose=verbose)
                 end 
-
+                #v = (v)u"m/s"
             elseif iv == "u2" || iv == "uy" || iv == "vy"
                 if is_vel
                     v = mem("p2")

@@ -5,6 +5,7 @@ import WGLMakie
 using JuliaDispatch.Utils, JuliaDispatch.Buffers
 using JuliaDispatch.Select
 using JuliaDispatch.Dispatch: snapshot
+using Unitful, Latexify, UnitfulRecipes, UnitfulLatexify
 WGLMakie.activate!()
 gr()
 
@@ -268,18 +269,22 @@ supported by the `Plots.plot()` function, in addition to
                                        an integer indicating same size for both dimensions. Default `300`.
 
 
-
+# Examples
+```
+```
 """
 function sliceplot(snap::Dict,
                   ;x = nothing, y = nothing, z = nothing, unigrid=true,
                   kw...)
 
-    kw = Dict(kw)
-
+    kw = Dict{Symbol, Any}(kw)
+    if !haskey(kw, :linetype) 
+        kw[:linetype] = :heatmap 
+    end
     kv = Dict{Symbol, Any}(:verbose => 0, :iv => 0,
                            :grids => false,
                            :width => nothing, :dims => 300,
-                           :center => nothing, :resample => false,
+                           :center => nothing, :resample => nothing,
                            :resampledims => nothing)
 
     _kw_extract(kw, kv)
@@ -302,6 +307,8 @@ function sliceplot(snap::Dict,
     if unigrid
         data = unigrid_plane(snap, iv=iv, x=x, y=y, z=z)
         verbose >= 1 && println("Unigrid data with shape $(size(data))")
+        println(dimension(eltype(data)))
+
     else
         data = amr_plane(snap, iv=iv, x=x, y=y, z=z, dims=kv[:dims])
         data = data'
@@ -348,9 +355,8 @@ function sliceplot(snap::Dict,
         d1, d2, data = resample(d1, d2, data, newdims)
     end
 
-
-    hm = plot(d1, d2, data'; kw...)
-    #hm = plot(data; kw...)
+    #hm = plot(d1, d2, data'; kw...)
+    hm = plot(data; unitformat=latexify, kw...)
     if kv[:grids]
         i = axis[3]
         patches = patches_in(snap, x=x, y=y, z=z)
@@ -393,6 +399,9 @@ function sliceplot(snap::Dict,
 
 end
 
+function test_heatmap(data)
+    heatmap(data, clims=(0.0u"m/s", 2.0u"m/s"))
+end
 
 function streamplot_(d1, d2, data)
     fig = figure(figsize=(12, 8))
@@ -554,8 +563,8 @@ function volume(snap::Dict; iv = 0, unigrid=true, kw...)
     #         e = patch["extent"]
     #     end
     # end
-
-    scene
+    WGLMakie.save("volume.png", scene)
+    #scene
 end
 
 function anim_plane(;data="../data", run="", x = nothing, y = nothing, z = nothing, iv=0, 

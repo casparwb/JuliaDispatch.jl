@@ -1,7 +1,7 @@
 import PyCall: pyimport
 
 # See https://stackoverflow.com/questions/12332975/installing-python-module-within-code.
-const PIP_PACKAGES = ["f90nml", "scipy"]
+const PIP_PACKAGES = ["f90nml", "scipy", "matplotlib"]
 
 sys = pyimport("sys")
 subprocess = pyimport("subprocess")

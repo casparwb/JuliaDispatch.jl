@@ -9,7 +9,6 @@ struct cgs
     kms    ::Float64
     mu     ::Float64
     m_u    ::Float64
-    m_e    ::Float64
     k_b    ::Float64
     k_B    ::Float64
     h_p    ::Float64
@@ -37,7 +36,6 @@ struct SI
     k_b    ::Float64
     k_B    ::Float64
     h_p    ::Float64
-    h_P    ::Float64
     e      ::Float64
     c      ::Float64
     stefan ::Float64
@@ -73,7 +71,6 @@ function init_system(units="cgs")
         1e+5,
         2.,
         1.6726e-24,
-        9.109e-28,
         1.3807e-16,
         1.3807e-16,
         6.6260e-27,
@@ -83,7 +80,7 @@ function init_system(units="cgs")
         5.6704e-8,
         9.109e-31,
         3e18,
-        1.5e13,
+        1.5e13
         ]
 
         return cgs(units, vals...)
@@ -103,12 +100,11 @@ function init_system(units="cgs")
             1.3807e-23,
             1.3807e-23,
             6.62606e-34,
-            6.62606e-34,
             1.6022e-19,
             2.9979e8,
             5.6704e-5,
             3e16,
-            1.5e11,]
+            1.5e11]
         return cgs(units, vals...)
 
     end
@@ -119,14 +115,14 @@ function scaling(;type="ISM", system="cgs", verbose=0, mu=2)
 
     units = init_system(system)
 
-    verbose > 0 ? println("using $(system) units") : nothing
+    verbose > 0 && println("using $(system) units")
 
     if type == "ISM"
         l = units.pc
         d = 1e-24
         v = 1e5
         t = l/v
-    elseif type="solar"
+    elseif type == "solar"
         l = 1e8
         t = 1e2
         d = 1e-7

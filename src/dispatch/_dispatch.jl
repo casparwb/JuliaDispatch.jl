@@ -6,6 +6,7 @@ using JuliaDispatch.Utils
 include("_aux2.jl")
 include("_dispatch_grid.jl")
 include("dispatch_utils.jl")
+include("../expr/_expr.jl")
 
 """
     snapshot(iotu::Int; run::String, data::String, verbose::Int)
@@ -79,16 +80,16 @@ function snapshot(iout=0; run="", data="../data", verbose = 0, copy = false, mem
 
         if "idx_nml" in keys(nml_list)
             idx_dict = nml_list["idx_nml"]
-            for (k, v) in idx_dict
-                idx_dict[k] += 1
-            end
+            # for (k, v) in idx_dict
+            #     idx_dict[k] += 1
+            # end
 
             idx = Dict()
             idx["dict"] = idx_dict
             idx["vars"] = Dict()
             for (k, v) in idx["dict"]
                 if !(v in keys(idx["vars"]))
-                    v >= 1 ? idx["vars"][v] = k : nothing
+                    v >= 0 ? idx["vars"][v] = k : nothing
                 end
             end
 
@@ -117,7 +118,6 @@ function snapshot(iout=0; run="", data="../data", verbose = 0, copy = false, mem
     statedict["dict"] = statedict["nml_list"]["snapshot_nml"]
 
     ### dress snapshot with attributes for snapshot_nml ###
-    ### lists are already arrays ###
 
     """ add patches as a list of dicts """
     verbose > 1 && println("add patches as a list of dicts") 
@@ -125,22 +125,7 @@ function snapshot(iout=0; run="", data="../data", verbose = 0, copy = false, mem
     statedict["patches"] = Dict[]#Array{Dict, 1}([])
     files = [f for f in readdir(datadir) if endswith(f, "_patches.nml")]
 
-    # ignore left-over *_patches.nml from other runs
-    # save = []
-    # rank = nothing
-    # for i = 1:statedict["mpi_size"]
-    #     f = files[i]
-    #     # split name to get rank number
-    #     rank = parse(Int, split(f, "_")[2])
 
-    #     # add parameter groups from data/run/NNNNN/*patches.nml
-    #     file = _file(datadir, f)
-    #     if verbose > 1 println("parsing $file") end
-
-    #     #patch_dict = parse_patches(statedict, file)
-    #     patch_dict = read_patch_metadata(iout, run, data, statedict["mpi_size"], verbose=verbose)
-    #     push!(save, patch_dict)
-    # end
     if !haskey(statedict, "mpi_size")
         statedict["mpi_size"] = 1
     end
@@ -527,6 +512,7 @@ function _var(patch, filed, snap; verbose = 0, copy = nothing)
             iv = patch["idx"][iv]
         end
 
+
         if patch["memmap"] == 1
             v = Mmap.mmap(filed, Array{Float32, length(shape)}, shape, patch["offset"][iv])
         end
@@ -720,7 +706,7 @@ function _var(patch, filed, snap; verbose = 0, copy = nothing)
         # or a numeric index
         elseif iv in patch["keys"]["numbers"]
             verbose == 1 && println("iv is a number: $iv")
-            if iv >= 1
+            if iv >= 0
                 v = mem(iv, verbose=verbose)
             end
 
@@ -865,12 +851,12 @@ function _var(patch, filed, snap; verbose = 0, copy = nothing)
             if iv >= 0
                 v = mem(iv)
             else
-                v = 0.0*mem(0)
+                v = 0.0*mem(1)
             end
 
         else
             verbose == 1 && println("unknown expression $iv")
-            #v = expression_parser(patch, iv) # NOT FINISHED TO-DO
+            v = evaluate_expression(patch, iv, verbose=verbose)
         end
 
         if v !== nothing
@@ -887,7 +873,6 @@ function _var(patch, filed, snap; verbose = 0, copy = nothing)
 
     return var
 end
-
 
 """ dont know what this is """
 function _h(dict)

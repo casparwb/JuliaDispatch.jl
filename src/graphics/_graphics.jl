@@ -5,7 +5,7 @@ import WGLMakie
 using JuliaDispatch.Utils, JuliaDispatch.Buffers
 using JuliaDispatch.Select
 using JuliaDispatch.Dispatch: snapshot
-using Unitful, Latexify, UnitfulRecipes, UnitfulLatexify
+# using Unitful, Latexify, UnitfulRecipes, UnitfulLatexify
 WGLMakie.activate!()
 gr()
 
@@ -399,9 +399,6 @@ function sliceplot(snap::Dict,
 
 end
 
-function test_heatmap(data)
-    heatmap(data, clims=(0.0u"m/s", 2.0u"m/s"))
-end
 
 function streamplot_(d1, d2, data)
     fig = figure(figsize=(12, 8))

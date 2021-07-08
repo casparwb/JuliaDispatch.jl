@@ -1,6 +1,8 @@
 module Utils
 
-export _kw_extract, get_n_snapshots, get_unit, get_available_ivs
+export _kw_extract, get_n_snapshots, get_unit, get_available_ivs, get_snap_time
+
+using Printf
 
 function _kw_extract(kw, dict)
     """ if key from dict occur in kw, pop them """
@@ -92,6 +94,26 @@ function get_available_ivs(snap)
             end
         end
     end
+
+end
+
+function get_snap_time(snap::Int; data="../data", run="")
+
+    file = joinpatch(_dir(data, run), "$(@sprintf("%05d", iout))")*"/snapshot.nml"
+    if !isfile(file)
+        println("No snapshot file with path $file")
+        return nothing
+    end
+    time = nothing
+    open(file, "r") do namelist
+        for ln in eachline(namelist)
+            if startswith(strip(ln), "TIME")
+                time = parse(Float64, split(split(ln, "=")[2], ",")[1])
+                break
+            end
+        end
+    end
+    return time
 
 end
 

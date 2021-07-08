@@ -356,7 +356,7 @@ function sliceplot(snap::Dict,
     end
 
     #hm = plot(d1, d2, data'; kw...)
-    hm = plot(data; unitformat=latexify, kw...)
+    hm = plot(data; kw...)
     if kv[:grids]
         i = axis[3]
         patches = patches_in(snap, x=x, y=y, z=z)

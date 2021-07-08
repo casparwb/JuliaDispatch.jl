@@ -13,12 +13,12 @@
 # end # end module
 
 module JuliaDispatch
-    include("dispatch_utils.jl")
-    include("graphics/utils.jl")
-    include("select/_select.jl")
-    include("interpolations.jl")
-    include("select/buffers.jl")
+    include("Utils.jl")
+    include("Select.jl")
+    include("Interpolations.jl")
+    include("Buffers.jl")
     include("Dispatch.jl")
     include("Graphics.jl")
     include("Analysis.jl")
+    include("Scaling.jl")
 end

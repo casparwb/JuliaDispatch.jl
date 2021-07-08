@@ -1,10 +1,11 @@
 using PyCall, Printf, Mmap, StaticArrays, JLD, Unitful
 using FStrings
 
-using JuliaDispatch.DispatchUtils
+using JuliaDispatch.Utils
 
 include("_aux2.jl")
 include("_dispatch_grid.jl")
+include("dispatch_utils.jl")
 
 """
     snapshot(iotu::Int; run::String, data::String, verbose::Int)

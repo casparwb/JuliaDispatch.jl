@@ -1,6 +1,4 @@
-module Buffers
 
-export init_buffer, amr_plane, amr_volume, unigrid_plane, unigrid_volume, resample
 
 using JuliaDispatch.Select, JuliaDispatch.Interpolations, Unitful
 import Interpolations
@@ -46,16 +44,16 @@ function init_buffer(snap, iv, dims, ndims)
                if (typeof(iv) <: Int && iv > 0)]
 
         for iv in ivs
-            buffer[iv] = Array{Float32, ndims}(undef, datashp...)u"m/s"
+            buffer[iv] = Array{Float32, ndims}(undef, datashp...)
         end
     elseif typeof(iv) <: Array
         ivs = iv
         for iv_ in iv
-            buffer[iv_] = Array{Float32, ndims}(undef, datashp...)u"m/s"
+            buffer[iv_] = Array{Float32, ndims}(undef, datashp...)
         end
     else
         ivs = [iv]
-        buffer[iv] = Array{Float32, ndims}(undef, datashp...)u"m/s"
+        buffer[iv] = Array{Float32, ndims}(undef, datashp...)
     end
 
     return buffer
@@ -283,7 +281,7 @@ function unigrid_plane(snap::Dict; x = nothing, y = nothing, z = nothing,
             im = plane(patch, x = x, y = y, z = z, iv = iv,
                        verbose=verbose, all=all)
 
-            buffer[iv][idxs[1]:idxs[2], idxs[3]:idxs[4]] = (im)u"m/s"
+            buffer[iv][idxs[1]:idxs[2], idxs[3]:idxs[4]] = im
         end
     end
 
@@ -456,4 +454,3 @@ function resample(xs, ys, zs, data::Array{T, 3} where T, newdims)
     return nxs, nzs, nzs, new_data
 end
 
-end #module 

@@ -1,6 +1,4 @@
-module Utils
 
-export _kw_extract, get_n_snapshots, get_unit, get_available_ivs
 
 function _kw_extract(kw, dict)
     """ if key from dict occur in kw, pop them """
@@ -94,5 +92,3 @@ function get_available_ivs(snap)
     end
 
 end
-
-end #module

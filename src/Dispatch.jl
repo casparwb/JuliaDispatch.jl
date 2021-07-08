@@ -1,6 +1,6 @@
 module Dispatch
     using JLD
-    include("_dispatch.jl")
+    include("dispatch/_dispatch.jl")
 
     export snapshot
 end

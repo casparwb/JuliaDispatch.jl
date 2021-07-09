@@ -80,16 +80,16 @@ function snapshot(iout=0; run="", data="../data", verbose = 0, copy = false, mem
 
         if "idx_nml" in keys(nml_list)
             idx_dict = nml_list["idx_nml"]
-            # for (k, v) in idx_dict
-            #     idx_dict[k] += 1
-            # end
+            for (k, v) in idx_dict
+                idx_dict[k] += 1
+            end
 
             idx = Dict()
             idx["dict"] = idx_dict
             idx["vars"] = Dict()
             for (k, v) in idx["dict"]
                 if !(v in keys(idx["vars"]))
-                    v >= 0 ? idx["vars"][v] = k : nothing
+                    v > 0 ? idx["vars"][v] = k : nothing
                 end
             end
 
@@ -97,6 +97,7 @@ function snapshot(iout=0; run="", data="../data", verbose = 0, copy = false, mem
             for (k, v) in idx["dict"]
                 statedict["idx"][k] = v
             end
+
             statedict["keys"] = []
             for (k, v) in statedict["idx"]["vars"]
                 push!(statedict["keys"], k)
@@ -512,7 +513,7 @@ function _var(patch, filed, snap; verbose = 0, copy = nothing)
             iv = patch["idx"][iv]
         end
 
-
+        # iszero(iv) ? iv += 1 : nothing
         if patch["memmap"] == 1
             v = Mmap.mmap(filed, Array{Float32, length(shape)}, shape, patch["offset"][iv])
         end
@@ -588,8 +589,8 @@ function _var(patch, filed, snap; verbose = 0, copy = nothing)
     end
 
     function internal(v; all = false)
-        vshape = size(v)
 
+        vshape = size(v)
         if Bool(all) || length(vshape) < 3 || minimum(vshape) <= 4
             return v
 
@@ -857,6 +858,7 @@ function _var(patch, filed, snap; verbose = 0, copy = nothing)
         else
             verbose == 1 && println("unknown expression $iv")
             v = evaluate_expression(patch, iv, verbose=verbose)
+            return v
         end
 
         if v !== nothing

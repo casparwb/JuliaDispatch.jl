@@ -29,31 +29,34 @@ Output:
               n-dimensional arrays of type Float32.
               If iv is int/string, output is undefined ndims-dimensional array of Float32.
 """
-function init_buffer(snap, iv, dims, ndims)
+function init_buffer(snap, iv, dims, num_dims)
 
     datashp = nothing
     if typeof(dims) <: Int
-        datashp = repeat([dims], ndims)
+        datashp = repeat([dims], num_dims)
     else
         datashp = dims
     end
 
-    buffer = Dict{Union{String, Int}, Array{Quantity{Float32}, ndims}}()
+    buffer = Dict{Union{String, Int}, Array{Number, num_dims}}()
     if typeof(iv) <: String && iv == "all"
         ivs = [k for (k, iv) in snap["idx"]
                if (typeof(iv) <: Int && iv > 0)]
 
         for iv in ivs
-            buffer[iv] = Array{Float32, ndims}(undef, datashp...)
+            # buffer[iv] = Array{Number, num_dims}(0, datashp...)
+            buffer[iv] = zeros(Float32, datashp...)
         end
     elseif typeof(iv) <: Array
         ivs = iv
         for iv_ in iv
-            buffer[iv_] = Array{Float32, ndims}(undef, datashp...)
+            # buffer[iv_] = Array{Number, num_dims}(0, datashp...)
+            buffer[iv_] = zeros(Float32, datashp...)
         end
     else
         ivs = [iv]
-        buffer[iv] = Array{Float32, ndims}(undef, datashp...)
+        # buffer[iv] = Array{Number, num_dims}(0, datashp...)
+        buffer[iv] = zeros(Float32, datashp...)
     end
 
     return buffer
@@ -153,26 +156,26 @@ function amr_plane(snap; iv = 0, x = nothing, y = nothing, z = nothing,
 end
 
 """
-amr_volume(snap::Dict; iv::Union{Int, AbstractArray, String}, all::Bool,
-           dims::Union{Tuple, Int}, verbose::int)
+    amr_volume(snap::Dict; iv::Union{Int, AbstractArray, String}, all::Bool,
+            dims::Union{Tuple, Int}, verbose::int)
 
 Return an interpolated 3d array from all mesh-refined patch data, with size
 defined by dims.
 
-Arguments:
------------
-    - snap: Dict, snapshot object
+#Arguments:
 
-Kwargs:
------------
-    - iv:      String/Int/Collection of String/Ints, what quantity(ies) to extract, default 0
-    - dims:    Int/Tuple, data size in each dimension. If Int,
+- snap: Dict, snapshot object
+
+#Kwargs:
+
+- iv:      String/Int/Collection of String/Ints, what quantity(ies) to extract, default 0
+- dims:    Int/Tuple, data size in each dimension. If Int,
                all dimensions will have same length. If Tuple/Array,
                must have length(dims) == 3. Default 100.
 
-Returns:
------------
-    - Dictionairy of Array{Float32, 3} if iv is a collection,
+#Returns:
+
+- Dictionairy of Array{Float32, 3} if iv is a collection,
       or Array{Float32, 3} if iv is Int/String
 """
 function amr_volume(snap; iv::Union{Int, Array, String} = 0, all = true,
@@ -248,7 +251,7 @@ function unigrid_plane(snap::Dict; x = nothing, y = nothing, z = nothing,
 
     xyz = [x, y, z]
     ax = getindex((1, 2, 3), xyz .!= nothing)[1]
-    println(ax)
+
     patches = patches_in(snap, x=x, y=y, z=z)
     if length(patches) == 0
       throw(ErrorException(" no patches found in [$x, $y, $z]"))
@@ -274,13 +277,25 @@ function unigrid_plane(snap::Dict; x = nothing, y = nothing, z = nothing,
 
     verbose >= 1 && println("data shape: $datashp") 
 
+    # if verbose > 2
+    #     ax1ids, ax2ids = Base.OneTo(n1), Base.OneTo(n2)
+    #     all_ids1 = []
+    #     all_ids2 =[]
+    #     for (k, v) in patchDict
+    #         append!(all_ids1, v[1][1]:v[1][2] |> collect)
+    #         append!(all_ids2, v[1][3]:v[1][4] |> collect)
+    #     end
+
+    #     return all_ids1, all_ids2, ax1ids, ax2ids
+
+    # end
+
     buffer = init_buffer(snap, iv, datashp, 2)
     for iv in keys(buffer)
-        #buffer[iv] = (buffer[iv])u"m/s"
         for (idxs, patch) in values(patchDict)
             im = plane(patch, x = x, y = y, z = z, iv = iv,
                        verbose=verbose, all=all)
-
+            
             buffer[iv][idxs[1]:idxs[2], idxs[3]:idxs[4]] = im
         end
     end

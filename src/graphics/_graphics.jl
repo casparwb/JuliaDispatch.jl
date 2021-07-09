@@ -124,7 +124,6 @@ function histogram_along(snap, pt=[0.5, 0.5, 0.5]; kw...)
     else
         key = kv[:norm]
         label = (key == :pdf ? "probability density" : string(key))
-        println(label)
         ylabel!(label)
     end
 
@@ -307,8 +306,6 @@ function sliceplot(snap::Dict,
     if unigrid
         data = unigrid_plane(snap, iv=iv, x=x, y=y, z=z)
         verbose >= 1 && println("Unigrid data with shape $(size(data))")
-        println(dimension(eltype(data)))
-
     else
         data = amr_plane(snap, iv=iv, x=x, y=y, z=z, dims=kv[:dims])
         data = data'
@@ -356,7 +353,7 @@ function sliceplot(snap::Dict,
     end
 
     #hm = plot(d1, d2, data'; kw...)
-    hm = plot(data; kw...)
+    hm = plot(d1, d2, data; kw...)
     if kv[:grids]
         i = axis[3]
         patches = patches_in(snap, x=x, y=y, z=z)
@@ -419,103 +416,143 @@ function streamplot_(d1, d2, data)
     return fig
 end
 
-function anim_pane(snap; ax=1, nframes=10, unigrid=true, kw...)
+function anim_pane(snap; ax=1, nframes=10, unigrid=true, iv=iv, start=nothing, stop=nothing, verbose=0, kw...)
     """ Animate a pane through given axis """
 
-    kw = Dict(kw)
-    kv = Dict{Symbol, Any}(:verbose => 0, :iv => 0,
-                           :grids => false, :cmap => :auto,
-                           :title => "", :label => nothing,
-                           :style => :heatmap, :fill => true,
-                           :width => nothing, :dims => 300,
-                           :xlabel => nothing, :ylabel => nothing,
-                           :center => nothing, :resample => false,
-                           :resampledims => nothing)
-
-    _kw_extract(kw, kv)
-    iv = kv[:iv]
-    verbose = kv[:verbose]
-
-    axStr = ("x", "y", "z")[ax .== [1, 2, 3]][1]
-    # planeDirs = getindex(dirs, xyz .== nothing)
-
-    origin = copy(snap["cartesian"]["origin"])
-    Size = copy(snap["cartesian"]["size"])
-    deleteat!(origin, ax)
-    deleteat!(Size, ax)
-
-    get_data() = nothing
-    # if unigrid
-    #     if ax == 1
-    #         get_data(xx) = unigrid_plane(snap, iv=iv, x=xx)
-    #     elseif ax == 2
-    #         get_data(yy) = unigrid_plane(snap, iv=iv, y=yy)
-    #     else
-    #         get_data(zz) = unigrid_plane(snap, iv=iv, z=zz)
-    #     end
-    # else
-    #     if ax == 1
-    #         get_data(xx) = amr_plane(snap, iv=iv, x=xx, y=nothing, z=nothing, dims=kv[:dims])'
-    #     elseif ax == 2
-    #         get_data(yy) = amr_plane(snap, iv=iv, y=yy,x=nothing, z=nothing, dims=kv[:dims])'
-    #     else
-    #         get_data(zz) = amr_plane(snap, iv=iv, z=zz,x=nothing, y=nothing, dims=kv[:dims])'
-    #     end
-    # end
-
-    get_data(xx) = amr_plane(snap, iv=iv, x=xx, y=nothing, z=nothing, dims=kv[:dims])'
-
-    start = snap["cartesian"]["origin"][ax]
-    stop = snap["cartesian"]["size"][ax]
-
-    axvals = range(start, start+stop, length=nframes+1)
-    anim = @animate for i = 1:nframes
-        data = get_data(axvals[i])
-        d1 = range(origin[1], origin[1]+Size[1], length=size(data)[1])
-        d2 = range(origin[2], origin[2]+Size[2], length=size(data)[2])
-
-        wflag = false
-        if kv[:width] != nothing
-            width = kv[:width]
-            wflag = true
-        else
-            width = Size
-        end
-
-        cflag = false
-        if kv[:center] != nothing
-            center = kv[:center]
-            cflag = true
-        else
-            center = origin .+ width
-        end
-
-        if wflag || cflag
-            idxs1 = findall(abs.(d1 .- center[1]) .<= width[1])
-            idxs2 = findall(abs.(d2 .- center[2]) .<= width[2])
-
-            data = data[idxs1, idxs2]
-            d1 = d1[idxs1]
-            d2 = d2[idxs2]
-
-        end
-
-        if kv[:resample]
-            newdims = nothing
-            if kv[:resampledims] == nothing
-                newdims = kv[:dims]
-            else
-                newdims = kv[:resampledims]
-            end
-            Bool(verbose) ? println("Resampling with size $newdims") : nothing
-            d1, d2, data = resample(d1, d2, data, newdims)
-        end
-
-        heatmap(d1, d2, data, cbar=false)
+    if !isnothing(start) && isnothing(stop)
+        axvals = LinRange(start, 
+                          snap["cartesian"]["origin"][ax]+snap["cartesian"]["size"][ax], 
+                          nframes)
+    elseif !isnothing(stop) && isnothing(start)
+        axvals = LinRange(snap["cartesian"]["origin"][ax], 
+                          stop, 
+                          nframes)
+    elseif !isnothing(stop) && !isnothing(start)
+        axvals = LinRange(start, stop, nframes)   
+    else
+        axvals = LinRange(snap["cartesian"]["origin"][ax], 
+                          snap["cartesian"]["origin"][ax]+snap["cartesian"]["size"][ax], 
+                          nframes)    
     end
 
-    # gif(anim, "testgif.gif", fps=1)
-    gif(anim, "testgif2.gif", fps=20)
+    if ax == 3
+        axvals = reverse(axvals)
+    end
+    
+    verbose == 1 && println("panning through $ax from $(axvals[1]) to $(axvals[end])")
+
+    #sliceplot_wrap = nothing
+    # if ax == 1
+    #     sliceplot_wrap(x) = sliceplot(snap, iv=iv, unigrid=unigrid, x=x; kw...)
+    # elseif ax == 2
+    #     sliceplot_wrap(y) = sliceplot(snap, iv=iv, unigrid=unigrid, y=y; kw...)
+    # elseif ax == 3
+    #     println(ax)
+    # end
+    sliceplot_wrap(z) = sliceplot(snap, iv=iv, unigrid=unigrid, z=z, resample=(400, 400); kw...)
+
+    anim = @animate for i = 1:nframes
+        println(i)
+        # sliceplot_wrap(axvals[i])
+        sliceplot(snap, iv=iv, unigrid=unigrid, z=z, resample=(400, 400); kw...)
+    end
+
+    gif(anim, "deeo_sun_ax_$ax.gif")
+
+    # kw = Dict(kw)
+    # kv = Dict{Symbol, Any}(:verbose => 0, :iv => 0,
+    #                        :grids => false, :cmap => :auto,
+    #                        :title => "", :label => nothing,
+    #                        :style => :heatmap, :fill => true,
+    #                        :width => nothing, :dims => 300,
+    #                        :xlabel => nothing, :ylabel => nothing,
+    #                        :center => nothing, :resample => false,
+    #                        :resampledims => nothing)
+
+    # _kw_extract(kw, kv)
+    # iv = kv[:iv]
+    # verbose = kv[:verbose]
+
+    # axStr = ("x", "y", "z")[ax .== [1, 2, 3]][1]
+    # # planeDirs = getindex(dirs, xyz .== nothing)
+
+    # origin = copy(snap["cartesian"]["origin"])
+    # Size = copy(snap["cartesian"]["size"])
+    # deleteat!(origin, ax)
+    # deleteat!(Size, ax)
+
+    # get_data() = nothing
+    # # if unigrid
+    # #     if ax == 1
+    # #         get_data(xx) = unigrid_plane(snap, iv=iv, x=xx)
+    # #     elseif ax == 2
+    # #         get_data(yy) = unigrid_plane(snap, iv=iv, y=yy)
+    # #     else
+    # #         get_data(zz) = unigrid_plane(snap, iv=iv, z=zz)
+    # #     end
+    # # else
+    # #     if ax == 1
+    # #         get_data(xx) = amr_plane(snap, iv=iv, x=xx, y=nothing, z=nothing, dims=kv[:dims])'
+    # #     elseif ax == 2
+    # #         get_data(yy) = amr_plane(snap, iv=iv, y=yy,x=nothing, z=nothing, dims=kv[:dims])'
+    # #     else
+    # #         get_data(zz) = amr_plane(snap, iv=iv, z=zz,x=nothing, y=nothing, dims=kv[:dims])'
+    # #     end
+    # # end
+
+    # get_data(xx) = amr_plane(snap, iv=iv, x=xx, y=nothing, z=nothing, dims=kv[:dims])'
+
+    # start = snap["cartesian"]["origin"][ax]
+    # stop = snap["cartesian"]["size"][ax]
+
+    # axvals = range(start, start+stop, length=nframes+1)
+    # anim = @animate for i = 1:nframes
+    #     data = get_data(axvals[i])
+    #     d1 = range(origin[1], origin[1]+Size[1], length=size(data)[1])
+    #     d2 = range(origin[2], origin[2]+Size[2], length=size(data)[2])
+
+    #     wflag = false
+    #     if kv[:width] != nothing
+    #         width = kv[:width]
+    #         wflag = true
+    #     else
+    #         width = Size
+    #     end
+
+    #     cflag = false
+    #     if kv[:center] != nothing
+    #         center = kv[:center]
+    #         cflag = true
+    #     else
+    #         center = origin .+ width
+    #     end
+
+    #     if wflag || cflag
+    #         idxs1 = findall(abs.(d1 .- center[1]) .<= width[1])
+    #         idxs2 = findall(abs.(d2 .- center[2]) .<= width[2])
+
+    #         data = data[idxs1, idxs2]
+    #         d1 = d1[idxs1]
+    #         d2 = d2[idxs2]
+
+    #     end
+
+    #     if kv[:resample]
+    #         newdims = nothing
+    #         if kv[:resampledims] == nothing
+    #             newdims = kv[:dims]
+    #         else
+    #             newdims = kv[:resampledims]
+    #         end
+    #         Bool(verbose) ? println("Resampling with size $newdims") : nothing
+    #         d1, d2, data = resample(d1, d2, data, newdims)
+    #     end
+
+    #     heatmap(d1, d2, data, cbar=false)
+    # end
+
+    # # gif(anim, "testgif.gif", fps=1)
+    # gif(anim, "testgif2.gif", fps=20)
 end
 
 function volume(snap::Dict; iv = 0, unigrid=true, kw...)

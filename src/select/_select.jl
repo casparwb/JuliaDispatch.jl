@@ -40,17 +40,17 @@ end
 function patches_in(snap; x = nothing, y = nothing, z = nothing)
     patches = snap["patches"]
 
-    if x != nothing
+    if !isnothing(x)
         patches = [p for p in patches
                 if (x >= p["extent"][3, 1] && x < p["extent"][3, 2])]
     end
 
-    if y != nothing
+    if !isnothing(y)
         patches = [p for p in patches
                 if (y >= p["extent"][1, 1] && y < p["extent"][1, 2])]
     end
 
-    if z != nothing
+    if !isnothing(z)
         patches = [p for p in patches
                 if (z >= p["extent"][2, 1] && z < p["extent"][2, 2])]
     end
@@ -292,8 +292,10 @@ function plane(patch; x = nothing, y = nothing, z = nothing, iv = 0,
 
 
     if patch["guard_zones"]# && !all
-        li = patch["li"]  # lower inner
-        ui = patch["ui"]  # upper inner
+        #li = patch["li"]  # lower inner
+        #ui = patch["ui"]  # upper inner
+        li = ones(Int, 3)
+        ui = patch["n"]
     else #all || !patch["guard_zones"]
         li = ones(Int, 3) # using Static??
         ui = patch["n"]
@@ -324,7 +326,7 @@ function plane(patch; x = nothing, y = nothing, z = nothing, iv = 0,
         # f = transpose(variv[:, i  , :]*(1.0-p) +
         #               variv[:, i+1, :]*p)
         f = (variv[:, i  , :]*(1.0-p) +
-                        variv[:, i+1, :]*p)
+             variv[:, i+1, :]*p)
 
     elseif !isnothing(z)
         p = (z - patch["z"][1])/patch["ds"][3]
@@ -339,15 +341,15 @@ function plane(patch; x = nothing, y = nothing, z = nothing, iv = 0,
         #         variv[li[1]:ui[1], li[2]:ui[2], i+1]*p
         # end
         if i == 0
-            f = variv[:, :, end]*(1.0 - p) +
-                variv[:, :, i+1]*p
+            f = variv[:, :, 1]*(1.0 - p) +
+                variv[:, :, 2]*p
         else
             f = variv[:, :, i]*(1.0 - p) +
                 variv[:, :, i+1]*p
         end
     end
 
-    verbose >= 1 && println("plane: $i, p = $i $p")
+    verbose > 1 && println("plane: $i, p = $i $p")
 
     return f
 

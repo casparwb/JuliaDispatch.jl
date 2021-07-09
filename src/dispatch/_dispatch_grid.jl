@@ -95,7 +95,7 @@ function init_Cartesian(GF, p)
 
 end
 
-function init_cyrlindrical(GF, p)
+function init_cylindrical(GF, p)
     """ Initialise geometric factors for a cylindrical coordinate system """
 
     n1, n2, n2 = p["cell"]

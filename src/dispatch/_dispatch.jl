@@ -1,4 +1,4 @@
-using PyCall, Printf, Mmap, StaticArrays, JLD, Unitful
+using PyCall, Printf, Mmap, StaticArrays, JLD, Unitful, ProgressBars
 using FStrings
 
 using JuliaDispatch.Utils
@@ -856,7 +856,7 @@ function _var(patch, filed, snap; verbose = 0, copy = nothing)
             end
 
         else
-            verbose == 1 && println("unknown expression $iv")
+            verbose == 1 && println("unknown expression $iv, attempting to parse")
             v = evaluate_expression(patch, iv, verbose=verbose)
             return v
         end

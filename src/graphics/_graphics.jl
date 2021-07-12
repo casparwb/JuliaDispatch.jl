@@ -78,14 +78,6 @@ function plot_values_along(snap::Dict, pt=[0.5, 0.5, 0.5]; kw...)
 end
 
 
-function plot_density(snap; iv=0)
-
-end
-
-function plot_stacked_density(snap; iv=0)
-
-end
-
 function histogram_along(snap, pt=[0.5, 0.5, 0.5]; kw...)
     """ Plot a histogram along direction dir={1,2,3}, through point pt=[x,y,z]
     kwargs
@@ -416,7 +408,8 @@ function streamplot_(d1, d2, data)
     return fig
 end
 
-function anim_pane(snap; ax=1, nframes=10, unigrid=true, iv=iv, start=nothing, stop=nothing, verbose=0, kw...)
+function anim_pane(snap; ax=1, nframes=10, unigrid=true, iv=iv, 
+                   start=nothing, stop=nothing, verbose=0, savepath = nothing, kw...)
     """ Animate a pane through given axis """
 
     if !isnothing(start) && isnothing(stop)
@@ -441,118 +434,46 @@ function anim_pane(snap; ax=1, nframes=10, unigrid=true, iv=iv, start=nothing, s
     
     verbose == 1 && println("panning through $ax from $(axvals[1]) to $(axvals[end])")
 
-    #sliceplot_wrap = nothing
-    # if ax == 1
-    #     sliceplot_wrap(x) = sliceplot(snap, iv=iv, unigrid=unigrid, x=x; kw...)
-    # elseif ax == 2
-    #     sliceplot_wrap(y) = sliceplot(snap, iv=iv, unigrid=unigrid, y=y; kw...)
-    # elseif ax == 3
-    #     println(ax)
-    # end
-    sliceplot_wrap(z) = sliceplot(snap, iv=iv, unigrid=unigrid, z=z, resample=(400, 400); kw...)
+    if ax == 1
+        anim_pane_x(snap, axvals, iv = iv, nframes = nframes, unigrid = unigrid, savepath=savepath; kw...)
+    elseif ax == 2
+        anim_pane_y(snap, axvals, iv = iv, nframes = nframes, unigrid = unigrid, savepath=savepath; kw...)
+    else
+        anim_pane_z(snap, axvals, iv = iv, nframes = nframes, unigrid = unigrid, savepath=savepath; kw...)
+    end
+end
 
-    anim = @animate for i = 1:nframes
-        println(i)
-        # sliceplot_wrap(axvals[i])
-        sliceplot(snap, iv=iv, unigrid=unigrid, z=z, resample=(400, 400); kw...)
+function anim_pane_x(snap, x; iv = 0, nframes = 10, verbose = 0, 
+                    unigrid=true, savepath=nothing, kw...)
+
+    anim = @animate for i = 1:length(x)
+        sliceplot(snap, iv=iv, unigrid=unigrid, x=x[i], verbose=verbose, kw...)
     end
 
-    gif(anim, "deeo_sun_ax_$ax.gif")
+    gif(anim, savepath)
 
-    # kw = Dict(kw)
-    # kv = Dict{Symbol, Any}(:verbose => 0, :iv => 0,
-    #                        :grids => false, :cmap => :auto,
-    #                        :title => "", :label => nothing,
-    #                        :style => :heatmap, :fill => true,
-    #                        :width => nothing, :dims => 300,
-    #                        :xlabel => nothing, :ylabel => nothing,
-    #                        :center => nothing, :resample => false,
-    #                        :resampledims => nothing)
+end
 
-    # _kw_extract(kw, kv)
-    # iv = kv[:iv]
-    # verbose = kv[:verbose]
+function anim_pane_y(snap, y; iv = 0, nframes = 10, verbose = 0, 
+                     unigrid=true, savepath=nothing, kw...)
 
-    # axStr = ("x", "y", "z")[ax .== [1, 2, 3]][1]
-    # # planeDirs = getindex(dirs, xyz .== nothing)
+    anim = @animate for i = 1:length(y)
+        sliceplot(snap, iv=iv, unigrid=unigrid, y=y[i], verbose=verbose, kw...)
+    end
 
-    # origin = copy(snap["cartesian"]["origin"])
-    # Size = copy(snap["cartesian"]["size"])
-    # deleteat!(origin, ax)
-    # deleteat!(Size, ax)
+    gif(anim, savepath)
+                
+end
 
-    # get_data() = nothing
-    # # if unigrid
-    # #     if ax == 1
-    # #         get_data(xx) = unigrid_plane(snap, iv=iv, x=xx)
-    # #     elseif ax == 2
-    # #         get_data(yy) = unigrid_plane(snap, iv=iv, y=yy)
-    # #     else
-    # #         get_data(zz) = unigrid_plane(snap, iv=iv, z=zz)
-    # #     end
-    # # else
-    # #     if ax == 1
-    # #         get_data(xx) = amr_plane(snap, iv=iv, x=xx, y=nothing, z=nothing, dims=kv[:dims])'
-    # #     elseif ax == 2
-    # #         get_data(yy) = amr_plane(snap, iv=iv, y=yy,x=nothing, z=nothing, dims=kv[:dims])'
-    # #     else
-    # #         get_data(zz) = amr_plane(snap, iv=iv, z=zz,x=nothing, y=nothing, dims=kv[:dims])'
-    # #     end
-    # # end
+function anim_pane_z(snap, z; iv = 0, nframes = 10, verbose = 0,
+                     unigrid=true, savepath=nothing, kw...)
 
-    # get_data(xx) = amr_plane(snap, iv=iv, x=xx, y=nothing, z=nothing, dims=kv[:dims])'
+    anim = @animate for i = 1:length(z)
+        sliceplot(snap, iv=iv, unigrid=unigrid, z=z[i], verbose=verbose, kw...)
+    end
 
-    # start = snap["cartesian"]["origin"][ax]
-    # stop = snap["cartesian"]["size"][ax]
-
-    # axvals = range(start, start+stop, length=nframes+1)
-    # anim = @animate for i = 1:nframes
-    #     data = get_data(axvals[i])
-    #     d1 = range(origin[1], origin[1]+Size[1], length=size(data)[1])
-    #     d2 = range(origin[2], origin[2]+Size[2], length=size(data)[2])
-
-    #     wflag = false
-    #     if kv[:width] != nothing
-    #         width = kv[:width]
-    #         wflag = true
-    #     else
-    #         width = Size
-    #     end
-
-    #     cflag = false
-    #     if kv[:center] != nothing
-    #         center = kv[:center]
-    #         cflag = true
-    #     else
-    #         center = origin .+ width
-    #     end
-
-    #     if wflag || cflag
-    #         idxs1 = findall(abs.(d1 .- center[1]) .<= width[1])
-    #         idxs2 = findall(abs.(d2 .- center[2]) .<= width[2])
-
-    #         data = data[idxs1, idxs2]
-    #         d1 = d1[idxs1]
-    #         d2 = d2[idxs2]
-
-    #     end
-
-    #     if kv[:resample]
-    #         newdims = nothing
-    #         if kv[:resampledims] == nothing
-    #             newdims = kv[:dims]
-    #         else
-    #             newdims = kv[:resampledims]
-    #         end
-    #         Bool(verbose) ? println("Resampling with size $newdims") : nothing
-    #         d1, d2, data = resample(d1, d2, data, newdims)
-    #     end
-
-    #     heatmap(d1, d2, data, cbar=false)
-    # end
-
-    # # gif(anim, "testgif.gif", fps=1)
-    # gif(anim, "testgif2.gif", fps=20)
+    gif(anim, savepath)
+                
 end
 
 function volume(snap::Dict; iv = 0, unigrid=true, kw...)

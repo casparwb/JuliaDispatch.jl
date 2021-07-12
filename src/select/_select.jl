@@ -38,21 +38,20 @@ end
 
 """ Returns which patches are in a given plane """
 function patches_in(snap; x = nothing, y = nothing, z = nothing)
-    patches = snap["patches"]
 
     if !isnothing(x)
-        patches = [p for p in patches
-                if (x >= p["extent"][3, 1] && x < p["extent"][3, 2])]
+        patches = [p for p in snap["patches"]
+                if (x >= p["extent"][3, 1] && x <= p["extent"][3, 2])]
     end
 
     if !isnothing(y)
-        patches = [p for p in patches
-                if (y >= p["extent"][1, 1] && y < p["extent"][1, 2])]
+        patches = [p for p in snap["patches"]
+                if (y >= p["extent"][1, 1] && y <= p["extent"][1, 2])]
     end
 
     if !isnothing(z)
-        patches = [p for p in patches
-                if (z >= p["extent"][2, 1] && z < p["extent"][2, 2])]
+        patches = [p for p in snap["patches"]
+                if (z >= p["extent"][2, 1] && z <= p["extent"][2, 2])]
     end
 
     return patches

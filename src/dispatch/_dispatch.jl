@@ -130,16 +130,18 @@ function snapshot(iout=0; run="", data="../data", verbose = 0, copy = false, mem
     if !haskey(statedict, "mpi_size")
         statedict["mpi_size"] = 1
     end
+
     patch_dict = read_patch_metadata(iout, run, data, statedict["mpi_size"], verbose=verbose)
+
     if isnothing(patch_dict)
         println("could not find patch metadata")
         return nothing
     end
 
     ids = sort(collect(keys(patch_dict)))
-    for id in ids
-        #id = parse(Int, id)
-        p = _patch2(parse(Int, id), patch_dict[id], statedict)
+    for id in ProgressBar(1:length(ids))
+        p = _patch2(id, patch_dict["$id"], statedict)
+        # p = _patch2(parse(Int, id), patch_dict[id], statedict)
         _add_axes(statedict, p)
         push!(statedict["patches"], p)
         
@@ -154,7 +156,7 @@ function snapshot(iout=0; run="", data="../data", verbose = 0, copy = false, mem
                 vmin = parse(Float64, minimum(data))
                 vmax = parse(Float64, maximum(data))
                 var = p["idx"]["vars"][iv]
-                #println(f"{var:>5} :  min = {vmin:10.3e}    max = {vmax:10.3e}")
+                println(@sprintf("%d :  min = %10.3e    max = %10.3e", var, vmin, vmax))
             end # do
         elseif verbose == 4
             attributes(p)
@@ -162,14 +164,6 @@ function snapshot(iout=0; run="", data="../data", verbose = 0, copy = false, mem
     end # for
 
     verbose == 1 && println("    added $(length(statedict[string(:patches)])) patches")
-    # for patch_dict in save
-    #     ids = sort(collect(keys(patch_dict)))
-    #     for id in ids
-    #         p = _patch(id, patch_dict[id], statedict, rank)
-    #         _add_axes(statedict, p)
-    #         push!(statedict["patches"], p)
-    #     end
-    # end
 
     return statedict
 

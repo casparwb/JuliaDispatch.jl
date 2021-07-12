@@ -139,9 +139,10 @@ function snapshot(iout=0; run="", data="../data", verbose = 0, copy = false, mem
     end
 
     ids = sort(collect(keys(patch_dict)))
-    for id in ProgressBar(1:length(ids))
-        p = _patch2(id, patch_dict["$id"], statedict)
-        # p = _patch2(parse(Int, id), patch_dict[id], statedict)
+    for i in ProgressBar(1:length(ids))
+        id = ids[i]
+        #p = _patch2(id, patch_dict[id], statedict)
+        p = _patch2(parse(Int, id), patch_dict[id], statedict)
         _add_axes(statedict, p)
         push!(statedict["patches"], p)
         
@@ -585,7 +586,7 @@ function _var(patch, filed, snap; verbose = 0, copy = nothing)
     function internal(v; all = false)
 
         vshape = size(v)
-        if Bool(all) || length(vshape) < 3 || minimum(vshape) <= 4
+        if all|| length(vshape) < 3 || minimum(vshape) <= 4
             return v
 
         elseif patch["guard_zones"]

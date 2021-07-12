@@ -13,9 +13,9 @@ to axis values
 function values_along(snap, point=[0.5, 0.5, 0.5];
                     dir=1, iv=0, var=nothing, verbose = 0, all = false)
                     
-    if haskey(snap, "patches")
-        snap = snap["patches"]
-    end
+    # if haskey(snap, "patches")
+    #     patches = snap["patches"]
+    # end
 
     patches = patches_along(snap, point, dir = dir, verbose = verbose)
 
@@ -182,33 +182,37 @@ function indices_and_weights(p::Dict, point = [0.5, 0.5, 0.5], iv = 0)
 end
 
 
-function patches_along(pp, point=[0.5, 0.5, 0.5]; dir = 1, verbose=0)
+function patches_along(snap, point=[0.5, 0.5, 0.5]; dir = 1, verbose=0)
     """
     Get the patches along a given direction through a point
     """
 
-    "patches" in keys(pp) ? pp = pp["patches"] : nothing
+    if haskey(snap, "patches")#"patches" in keys(snap) 
+        patches = snap["patches"]
+    end
 
     pt = copy(point)
 
     ## ADD VERBOSE ??? ###
 
-    p = patch_at(pp, pt)
+    p = patch_at(patches, pt)
 
-    if p != nothing
+    if !isnothing(p)
         p1 = p
-        while p != nothing
+        while !isnothing(p)
             pt[dir] = p["position"][dir] - p["size"][dir]*0.6
-            p = patch_at(pp, pt)
-            p != nothing ? p1 = p : nothing
+            p = patch_at(patches, pt)
+            if !isnothing(p)
+                p1 = p
+            end
     end
 
     p = p1
     out = []
-    while p != nothing
+    while !isnothing(p)
         push!(out, p)
         pt[dir] = p["position"][dir] + p["size"][dir]*0.6
-        p = patch_at(pp, pt)
+        p = patch_at(patches, pt)
     end
     else
         out = nothing

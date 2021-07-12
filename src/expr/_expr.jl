@@ -16,7 +16,7 @@ function evaluate_expression(patch, expr; verbose = 0)
     expr = replace(expr, "sqrt" => "√")
     ops = "+-*/^"
 
-    methods = ["cos", "sin", "tan", "√", "abs", "atan"]
+    methods = ["cos", "sin", "tan", "√", "abs", "atan", "log", "log2", "log10"]
 
     """ 
     if there are any mathematical expressions inside the expression, 
@@ -71,6 +71,7 @@ function evaluate_expression(patch, expr; verbose = 0)
             end
         end
     catch e
+        println("Unable to parse expression")
         throw(e)
     end
 

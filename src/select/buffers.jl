@@ -5,56 +5,49 @@ import Interpolations
 const Itp = Interpolations
 
 """
-init_buffer(snap::Dict, iv::Union{Int, String}, dims::Union{Tuple, AbstractArray},
-            ndims::Int)
+    init_buffer(snap::Dict, iv::Union{Int, String}, dims::Union{Tuple, AbstractArray},
+                ndims::Int)
 
-Function for initializing a buffer array for storing the data.
+Initialize a buffer for storing the data. Returns a `Dict` of `Arrays` if `iv` is a collection, otherwise
+an `Array`.
 
-Arguments:
----------------
-    - snap: Dict, snapshot dictionairy
+#Arguments:
+- `snap::Dict`: snapshot
 
-Kwargs:
----------------------------
-    - iv:    String/Int/Collection of String/Ints, what quantity(/ies) to extract, default 0
-    - dims:  Int/Tuple/Array, data size in each dimension. If Int,
-             all dimensions will have same length. If Tuple/Array,
-             must have length(dims) == ndims.
-    - ndims: number of dimensions
+#Kwargs:
+- `iv::Union{String, Int, Collection}` of String/Ints, what quantity(/ies) to extract, default 0
+- `dims::Union{Int, Tuple, Array}`, data size in each dimension. If Int,
+                                    all dimensions will have same length. If Tuple/Array,
+                                    must have length(dims) == ndims.
+- `ndims::Int`: number of dimensions
 
-Output:
----------------------------
-    - buffer: If iv is collection, output will be dictionairy with keys
-              equal to the input iv names, and values as undefined
-              n-dimensional arrays of type Float32.
-              If iv is int/string, output is undefined ndims-dimensional array of Float32.
 """
 function init_buffer(snap, iv, dims, num_dims)
 
     datashp = nothing
+    # determine datashape 
     if typeof(dims) <: Int
-        datashp = repeat([dims], num_dims)
+        datashp = repeat([dims], num_dims) # same number of points in each dimension
     else
-        datashp = dims
+        datashp = dims # or array of points in each dimension
     end
 
-    buffer = Dict{Union{String, Int}, Array{Number, num_dims}}()
-    if typeof(iv) <: String && iv == "all"
-        ivs = [k for (k, iv) in snap["idx"]
+    buffer = Dict{Union{String, Int}, Array{Number, num_dims}}() # dict for storing quantities
+
+    if typeof(iv) <: String && iv == "all" # if the given iv is `all`
+        ivs = [k for (k, iv) in keys(snap["idx"]["dict"])
                if (typeof(iv) <: Int && iv > 0)]
 
         for iv in ivs
             # buffer[iv] = Array{Number, num_dims}(0, datashp...)
             buffer[iv] = zeros(Float32, datashp...)
         end
-    elseif typeof(iv) <: Array
-        ivs = iv
+    elseif typeof(iv) <: AbstractArray # if the given iv is an array of different ivs
         for iv_ in iv
             # buffer[iv_] = Array{Number, num_dims}(0, datashp...)
             buffer[iv_] = zeros(Float32, datashp...)
         end
-    else
-        ivs = [iv]
+    else # if the iv is a single entry
         # buffer[iv] = Array{Number, num_dims}(0, datashp...)
         buffer[iv] = zeros(Float32, datashp...)
     end
@@ -163,18 +156,15 @@ Return an interpolated 3d array from all mesh-refined patch data, with size
 defined by dims.
 
 #Arguments:
-
 - snap: Dict, snapshot object
 
 #Kwargs:
-
 - iv:      String/Int/Collection of String/Ints, what quantity(ies) to extract, default 0
 - dims:    Int/Tuple, data size in each dimension. If Int,
                all dimensions will have same length. If Tuple/Array,
                must have length(dims) == 3. Default 100.
 
 #Returns:
-
 - Dictionairy of Array{Float32, 3} if iv is a collection,
       or Array{Float32, 3} if iv is Int/String
 """
@@ -226,25 +216,14 @@ function amr_volume(snap; iv::Union{Int, Array, String} = 0, all = true,
 end
 
 """
-unigrid_plane(snap::Dict; iv::Union{Int, String}, x::Float, y::Float, z::Float)
+    unigrid_plane(snap::Dict; iv::Union{Int, String}, x::Float, y::Float, z::Float)
 
-Return a 2d array of joined patch data. All patches in given plane must have same shape, size,
-and number of cells.
+Return a 2d array of joined patch data in a slice at `x/y/z`. All patches in given plane must have same shape, size,
+and number of cells. Returns a `Dict` if `iv` is a collection, otherwise a `Matrix`.
 
-Arguments:
------------
-    - snap: Dict, snapshot object
+#Arguments:
+- `snap::Dict`, snapshot object
 
-Kwargs:
------------
-    - iv:      String/Int/Collection of String/Ints, what quantity(ies) to extract, default 0
-    - x, y, z: Float, at what position to slice, default nothing
-    - all:     Bool, whether to include guard zones (if available)
-
-Returns:
------------
-    - Dictionairy of Array{Float32, 2} if iv is a collection,
-      or Array{Float32, 2} if iv is Int/String
 """
 function unigrid_plane(snap::Dict; x = nothing, y = nothing, z = nothing,
                       iv = 0, verbose=0, all=false)
@@ -277,18 +256,6 @@ function unigrid_plane(snap::Dict; x = nothing, y = nothing, z = nothing,
 
     verbose >= 1 && println("data shape: $datashp") 
 
-    # if verbose > 2
-    #     ax1ids, ax2ids = Base.OneTo(n1), Base.OneTo(n2)
-    #     all_ids1 = []
-    #     all_ids2 =[]
-    #     for (k, v) in patchDict
-    #         append!(all_ids1, v[1][1]:v[1][2] |> collect)
-    #         append!(all_ids2, v[1][3]:v[1][4] |> collect)
-    #     end
-
-    #     return all_ids1, all_ids2, ax1ids, ax2ids
-
-    # end
 
     buffer = init_buffer(snap, iv, datashp, 2)
     for iv in keys(buffer)
@@ -311,26 +278,19 @@ end
 
 
 """
-unigrid_volume(snap::Dict; iv::Union{Int, String}, all:Bool, verbose::Int)
+    unigrid_volume(snap::Dict; iv::Union{Int, String}=0, all::Bool=false, verbose::Int=0)
 
-Return a 3D array of joined patch data. All patches must have same shape, size, and
+Return a 3D array of joined patch data of quantity . All patches must have same shape, size, and
 number of cells.
 
-Arguments:
------------
-    - snap: dict, snapshot
+#Arguments:
+- `snap::Dict`, snapshot
 
-Kwargs:
------------
-    - iv: string/int/array, what quantity(/ies) to buffer. if array, output will
+#Kwargs:
+    - `iv::Union{String, Int, Array}`, what quantity(/ies) to buffer. if array, output will
           be a dictionairy with keys equal to the input variable names, and
           values as the 2d-buffers.
-    - all: bool, whether to include guard zones (if available)
-
-Output:
------------
-    - Dictionairy of Array{Float32, 3} if iv is a collection,
-      or Array{Float32, 3} if iv is Int/String
+    - `all::Bool`, whether to include guard zones (if available)
 """
 function unigrid_volume(snap; iv = 0,  all=false, verbose=0)
 
@@ -354,7 +314,7 @@ function unigrid_volume(snap; iv = 0,  all=false, verbose=0)
 
     datashp = (nx, ny, nz)
     buffer = init_buffer(snap, iv, datashp, 3)
-    verbose == 1 ? println("volume shape $datashp") : nothing
+    verbose == 1 && println("volume shape $datashp")
 
     for iv in keys(buffer)
         for (idxs, patch) in values(patchDict)
@@ -456,7 +416,7 @@ function resample(xs, ys, zs, data::Array{T, 3} where T, newdims)
 
     new_data = similar(data, nx, ny, nz)
 
-    itp = Itp.interpolate((x, y, z), data, Itp.Gridded(Itp.Linear()))
+    itp = Itp.interpolate((xs, ys, zs), data, Itp.Gridded(Itp.Linear()))
 
     for iz in eachindex(nzs)
         for iy in eachindex(nys)

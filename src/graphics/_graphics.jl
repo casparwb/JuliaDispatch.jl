@@ -1,5 +1,5 @@
 using Plots, LaTeXStrings, ProgressBars
-using PyPlot: streamplot, imshow, figure
+# using PyPlot: streamplot, imshow, figure
 #import Makie
 import WGLMakie
 using JuliaDispatch.Utils, JuliaDispatch.Buffers

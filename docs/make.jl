@@ -1,4 +1,5 @@
-
+using Pkg
+Pkg.activate(".")
 using Documenter
 using JuliaDispatch
 
@@ -26,6 +27,4 @@ makedocs(
 #     repo = "github.com/casparwb/JuliaDispatch.jl.git"
 # )
 
-deploydocs(;
-    repo="github.com/casparwb/JuliaDispatch.jl.git"
-)
+deploydocs(repo="github.com/casparwb/JuliaDispatch.jl.git", versions=nothing)

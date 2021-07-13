@@ -6,6 +6,7 @@ version = "0.2.0"
 [deps]
 BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
 Conda = "8f4d0f93-b110-5947-807f-2305c1781a2d"
+Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
 FFTW = "7a1cc6ca-52ef-59f5-83cd-3a7055c09341"
 FStrings = "1e2663ae-5621-49ef-9c0a-672f85872094"
 FortranFiles = "c58ffaec-ab22-586d-bfc5-781a99fd0b10"

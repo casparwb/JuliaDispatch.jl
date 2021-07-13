@@ -1,2 +1,3 @@
 [deps]
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+JuliaDispatch = "950d5269-0285-40e9-88e8-a9e3baf01f8c"

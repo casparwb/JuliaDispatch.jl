@@ -2,11 +2,11 @@
 
 using StaticArrays
 """
-    values_along(snap::Dict, point=[0.5, 0.5, 0.5]; dir=1, iv=0, var=nothing,
-                    verbose = 0, all = false)
+    values_along(snap::Dict, point::Array=[0.5, 0.5, 0.5]; dir::Int=1, iv::Union{String, Int}=0, var=nothing,
+                    verbose::Int = 0, all::Bool = false)
 
 
-Return s,f(s) with s the coordinates and f the values in the iv
+Return `s, f(s)` with `s` the coordinates and `f` the values in the `iv`
 slot of data, taken along the direction v -- so far restricted
 to axis values
 """
@@ -36,7 +36,11 @@ function values_along(snap, point=[0.5, 0.5, 0.5];
 
 end
 
-""" Returns which patches are in a given plane """
+""" 
+    patches_in(snap::Dict; x::Number=nothing, y::Number=nothing, z::Number=nothing)
+
+Return an array of patches that lie within a given plane. 
+"""
 function patches_in(snap; x = nothing, y = nothing, z = nothing)
 
     if !isnothing(x)
@@ -57,13 +61,15 @@ function patches_in(snap; x = nothing, y = nothing, z = nothing)
     return patches
 end
 
+
 """
-    values_in(p, point = [0.5, 0.5, 0.5]; dir = 1, iv = 0, i4 = 1, var = nothing, verbose = 0, all = false)
+    values_in(snap::Dict, point::Array=[0.5, 0.5, 0.5]; dir::Int=1, iv::Union{String, Int}=0, var=nothing,
+    verbose::Int = 0, all::Bool = false)
 
 
-Return s, f(s) with s the coordinates and f the values in the iv
-slot of data, taken along the direction v -- so far restricted to
-axis values
+Return `s, f(s)` with `s` the coordinates and `f` the values in the `iv`
+slot of data, taken along the direction v -- so far restricted
+to axis values
 """
 function values_in(p, point = [0.5,0.5,0.5];
                     dir = 1, iv = 0, i4 = 1, var = nothing, verbose = 0, all = false)
@@ -80,10 +86,10 @@ function values_in(p, point = [0.5,0.5,0.5];
     kone = (0, 1)[(p["gn"][3] > 1) + 1]
 
 
-    if !p["guard_zones"] || !Bool(all)
+    if !p["guard_zones"] || !all
         m = @SVector ones(Int32, 3)
         n = p["n"]
-    elseif Bool(all)
+    elseif all
         m = @SVector ones(Int32, 3)
         n = p["gn"]
     end
@@ -148,10 +154,12 @@ function values_in(p, point = [0.5,0.5,0.5];
 
 end
 
+"""
+    indices_and_weights(p::Dict, point = [0.5, 0.5, 0.5], iv = 0)
+
+Return indices and interpolation weights for a point in a patch p.
+"""
 function indices_and_weights(p::Dict, point = [0.5, 0.5, 0.5], iv = 0)
-    """
-    Return indices and interpolation weights for a point in a patch p
-    """
 
     x0 = p["x"][1]
     y0 = p["y"][1]
@@ -182,10 +190,12 @@ function indices_and_weights(p::Dict, point = [0.5, 0.5, 0.5], iv = 0)
 end
 
 
+"""
+    patches_along(snap, point=[0.5, 0.5, 0.5]; dir = 1, verbose=0)
+
+Get the patches along a given direction through a point
+"""
 function patches_along(snap, point=[0.5, 0.5, 0.5]; dir = 1, verbose=0)
-    """
-    Get the patches along a given direction through a point
-    """
 
     if haskey(snap, "patches")#"patches" in keys(snap) 
         patches = snap["patches"]
@@ -222,16 +232,18 @@ function patches_along(snap, point=[0.5, 0.5, 0.5]; dir = 1, verbose=0)
 
 end
 
-function patch_at(pp, point=[0.5, 0.5, 0.5]; verbose=0)
-    """
-    Find the patch that contains a given point
-    """
+"""
+    patch_at(pp, point=[0.5, 0.5, 0.5]; verbose=0)
+
+Find the patch that contains a given point.
+"""
+function patch_at(patches, point=[0.5, 0.5, 0.5]; verbose=0)
 
     level = -1
     p1 = nothing
-    @inbounds for p in pp
+    @inbounds for p in patches
         if is_inside(p, point, verbose)
-        p["level"] > level ? p1 = p : level = p["level"]
+            p["level"] > level ? p1 = p : level = p["level"]
         end
     end
 
@@ -251,7 +263,11 @@ all(left) && all(right)
 
 end
 
+"""
+    corner_indices(snap, patch; dir=1)
 
+Get the corner indices of a given patch.
+"""
 function corner_indices(snap, patch; dir=1)
 
 
@@ -270,24 +286,15 @@ function corner_indices(snap, patch; dir=1)
 end
 
 """
-plane(patch::Dict; x::Float, y::Float, z::Float,
-    iv::Union{String, Int}, all::Bool, verbose::Int)
+    plane(patch::Dict; x::Number=nothing, y::Number=nothing, z::Number=nothing,
+          iv::Union{String, Int}=0, all::Bool=false, verbose::Int=0)
 
-Return patch data of quantity iv at a slice x/y/z.
+Return patch data of quantity `iv` at a slice `x/y/z`.
 
-Arguments:
---------------
-    - patch: Dictionairy, a patch object from a snapshot
-
-Kwargs:
--------------
-    - x, y, z: Float, position at which to slice, default nothing
-    - iv: String/Int, what quantity to extract, default 0
-    - all: Bool, whether to include guard zones, default false
-
-Returns:
--------------
-    - 2d array of Float32.
+#Examples
+```
+julia> density_plane = plane(patch, z=-1.0, iv="d")
+```
 """
 function plane(patch; x = nothing, y = nothing, z = nothing, iv = 0,
                     verbose = 0, all=false)
@@ -306,7 +313,7 @@ function plane(patch; x = nothing, y = nothing, z = nothing, iv = 0,
 
     #@assert !all(isnothing.((x, y, z))) "plane: must give one x, y, or z-value."
 
-    variv = patch["var"](iv)
+    variv = patch["var"](iv, verbose=verbose, all=all)
     if !isnothing(x)
         p = (x - patch["x"][1])/patch["ds"][1]
         i = round(Int, p)
@@ -362,24 +369,15 @@ end
 """
 box(patch::Dict; iv::Union{String, Int}, all::Bool, verbose::Int)
 
-Return volume of data of quantity iv from patch.
+Return 3D-array of data of quantity `iv` from patch.
 
-Arguments:
-------------
-    - patch: Dictionairy, a patch object from a snapshot
-
-Kwargs:
---------------
-    - iv: String/Int, what quantity to extract, default 0
-    - all: Bool, whether to include guard zones, default false
-
-Returns:
-------------
-    - 3d array of Float32.
+```
+julia> density_box = box(patch, iv="d")
+```
 """
 function box(patch; iv = 0, all=false, verbose = 0)
 
-    if patch["guard_zones"]# && !all
+    if patch["guard_zones"] && !all
         li = patch["li"]  # lower inner
         ui = patch["ui"]  # upper inner
     else #all || !patch["guard_zones"]
@@ -387,7 +385,7 @@ function box(patch; iv = 0, all=false, verbose = 0)
         ui = patch["n"]
     end
 
-    f = patch["var"](iv)#[li[1]:ui[1], li[2]:ui[2], li[3]:ui[3]]
+    f = patch["var"](iv, verbose=verbose, all=all)#[li[1]:ui[1], li[2]:ui[2], li[3]:ui[3]]
 
     return f
 end

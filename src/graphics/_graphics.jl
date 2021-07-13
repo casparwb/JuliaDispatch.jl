@@ -347,9 +347,24 @@ function streamplot_(d1, d2, data)
     return fig
 end
 
-function anim_pane(snap; ax=1, nframes=10, unigrid=true, iv=iv, 
+""" 
+    anim_pane(snap; ax=1, nframes=10, unigrid=true, iv=iv, reverse=false
+              start=nothing, stop=nothing, verbose=0, savepath = nothing, kw...)
+              
+Plot and animate a pane through axis `ax` from `start` to `stop` with `nframes` frames of quantity `iv`. Output is saved
+to `savepath`. Will go from low to high axis values unless `reverse` is set to true.
+
+#Examples
+```
+julia> anim_pane(snap, ax=3, iv="d", nframes=100, start=0.0, stop=-10.0, savepath="test.gif", reverse=true)
+```
+"""
+function anim_pane(snap; ax=1, nframes=10, unigrid=true, iv=0, reverse=false,
                    start=nothing, stop=nothing, verbose=0, savepath = nothing, kw...)
-    """ Animate a pane through given axis """
+
+    if isnothing(savepath)
+        throw(ArgumentError("Must give path at which to save the output animation. Aborting."))
+    end
 
     if !isnothing(start) && isnothing(stop)
         axvals = LinRange(start, 
@@ -367,7 +382,7 @@ function anim_pane(snap; ax=1, nframes=10, unigrid=true, iv=iv,
                           nframes)    
     end
 
-    if ax == 3
+    if reverse
         axvals = reverse(axvals)
     end
     
@@ -382,6 +397,7 @@ function anim_pane(snap; ax=1, nframes=10, unigrid=true, iv=iv,
     end
 end
 
+""" Wrapper for pane animation in x-direction """
 function anim_pane_x(snap, x; iv = 0, nframes = 10, verbose = 0, 
                     unigrid=true, savepath=nothing, kw...)
 
@@ -394,6 +410,7 @@ function anim_pane_x(snap, x; iv = 0, nframes = 10, verbose = 0,
 
 end
 
+""" Wrapper for pane animation in y-direction """
 function anim_pane_y(snap, y; iv = 0, nframes = 10, verbose = 0, 
                      unigrid=true, savepath=nothing, kw...)
 
@@ -406,6 +423,7 @@ function anim_pane_y(snap, y; iv = 0, nframes = 10, verbose = 0,
                 
 end
 
+""" Wrapper for pane animation in z-direction """
 function anim_pane_z(snap, z; iv = 0, nframes = 10, verbose = 0,
                      unigrid=true, savepath=nothing, kw...)
 
@@ -464,40 +482,46 @@ function volume(snap::Dict; iv = 0, unigrid=true, kw...)
     #scene
 end
 
+"""
+    anim_plane(;data="../data", run="", x = nothing, y = nothing, z = nothing, iv=0, 
+                tspan=nothing, unigrid=true, step=1, savepath=nothing, verbose = 0, kw...)
+
+Animate a plane of quantity `iv` at a slice `x/y/z`. If `tspan` tuple is not given, all snapshots will be used, otherwise only snapshots
+with time within the given `tspan` will be loaded. A frame will be recorded every `step`, and the resulting animation
+will be saved to `savepath`. 
+"""
 function anim_plane(;data="../data", run="", x = nothing, y = nothing, z = nothing, iv=0, 
-                    tspan=nothing, unigrid=true, step=1, savepath=nothing)
+                    tspan=nothing, unigrid=true, step=1, savepath=nothing, verbose = 0, kw...)
 
-    nsnapshots = get_n_snapshots(data=data, run=run)
+    if isnothing(savepath)
+        throw(ArgumentError("Must give path at which to save the output animation. Aborting."))
+    end
 
-    anim = @animate for i = 1:step:nsnapshots-1
-        snap = snapshot(i, data=data, run=run)
-        isnothing(snap) && continue
-        plne = unigrid_plane(snap, x=x, y=y, z=z, iv=iv)
-        heatmap(plne)
-    end #every step
+    snapIDs = sort(get_snapshot_ids(data=data, run=run)) # all snapshot IDs
+
+    # if tspan is given, find the snapshots where time=t0 and time=tmax
+    if !isnothing(tspan)
+        t0, tmax = tspan
+        start, stop = nothing, nothing
+
+        times = get_snapshot_time.(snapIDs, data=data, run=run)
+        start = snapIDs[argmin(abs.(times .- t0))]
+        stop = snapIDs[argmin(abs.(times .- tmax))]
+    else # otherwise use all snapshots
+        start = snapIDs[1]
+        stop = snapIDs[end]
+        t0 = get_snap_time(start, data=data, run=run)
+        tmax = get_snap_time(stop, data=data, run=run)
+    end
+    
+    snapIDs = snapIDs[start:stop]
+
+    anim = @animate for i in snapIDs
+        snap = snapshot(i, data=data, run=run, verbose = verbose)
+        sliceplot(snap, iv=iv, unigrid=unigrid, x=x, y=y, z=z,
+                  verbose=verbose, kw...)
+    end 
 
     gif(anim, savepath)
     
-
-end
-
-function animate_volume(;data="../data", run="", iv=0, unigrid=true, savepath=".")
-
-    if unigrid
-        data = unigrid_volume(snap, iv=iv)
-    else
-        data = amr_volume(snap, iv=iv)
-    end
-
-
-    nsnaps = get_n_snapshots(data=data, run=run)
-    snap0 = snapshot(0, data=data, run=data)
-
-    scene = WGLMakie.volume(data)
-    vol_plot = scene[end]
-
-    record(savepath, 2:nsnaps-1) do i
-        vol_plot[1] = unigrid_volume(snapshot(i, data=data, run=run), iv=iv)
-    end
-
 end

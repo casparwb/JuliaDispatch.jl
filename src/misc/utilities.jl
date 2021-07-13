@@ -1,4 +1,5 @@
 
+using Printf
 
 function _kw_extract(kw, dict)
     """ if key from dict occur in kw, pop them """
@@ -90,5 +91,53 @@ function get_available_ivs(snap)
             end
         end
     end
+end
+
+"""
+    get_snapshot_time(iout::Int; data="../data", run="")
+
+Return the time of snapshot `iout` in the given `data/run`-folder.
+"""
+function get_snapshot_time(iout::Int; data="../data", run="")
+
+    file = joinpath(_dir(data, run), "$(@sprintf("%05d", iout))")*"/snapshot.nml"
+    if !isfile(file)
+        println("No snapshot file with path $file")
+        return nothing
+    end
+    time = nothing
+    open(file, "r") do namelist
+        for ln in eachline(namelist)
+            if strip(split(ln, "=")[1]) == "TIME"
+                time = parse(Float64, split(split(ln, "=")[2], ",")[1])
+                break
+            end
+        end
+    end
+    return time
 
 end
+
+"""
+    get_snapshot_ids(;data = "../data", run = "")
+
+Return an array of IDs of all snapshots in the given `data/run`-folder.
+"""
+function get_snapshot_ids(;data="../data", run="")
+
+    nsnaps = get_n_snapshots(run=run, data=data)
+    IDs = zeros(Int, nsnaps)
+
+    datadir = _dir(data, run)
+    folders = [folder for folder in readdir(datadir) if (isdir(datadir*"$folder") && 
+                                                         startswith(folder, "0")  && 
+                                                         "snapshot.nml" in readdir(datadir*"$folder"))]
+    
+    for (i, folder) in enumerate(folders)
+        IDs[i] = parse(Int, folder)
+    end
+
+    return IDs
+
+end
+

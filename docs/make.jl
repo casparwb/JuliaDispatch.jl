@@ -1,16 +1,32 @@
+using Pkg
+Pkg.activate(".")
 using Documenter
 using JuliaDispatch
-using JuliaDispatch.Dispatch
 
 makedocs(
-    sitename = "JuliaDispatch",
+    modules=[JuliaDispatch, JuliaDispatch.Dispatch, JuliaDispatch.Graphics, 
+             JuliaDispatch.Select, JuliaDispatch.Buffers, JuliaDispatch.Utils],
+    sitename = "JuliaDispatch.jl",
+    authors = "Caspar William Bruenech",
     format = Documenter.HTML(),
-    modules = [JuliaDispatch]
-)
+    build= "build",
+    pages = ["JuliaDispatch: Analysis and Visualization Tools for Dispatch" => "index.md",
+            "Getting Started" => "installation.md",
+            "Quick Start" => "quickstart.md",
+            "Dispatch" => "dispatch.md",
+            "Graphics" => "graphics.md",
+            "Select" => "select.md",
+            "Buffers" => "buffers.md",
+            "Utils" => "utils.md"]
+        )
 
 # Documenter can also automatically deploy documentation to gh-pages.
 # See "Hosting Documentation" and deploydocs() in the Documenter manual
 # for more information.
-#=deploydocs(
-    repo = "<repository url>"
-)=#
+# deploydocs(
+#     repo = "github.com/casparwb/JuliaDispatch.jl.git"
+# )
+
+deploydocs(;
+    repo="github.com/casparwb/JuliaDispatch.jl.git"
+)

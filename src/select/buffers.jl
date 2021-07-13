@@ -8,7 +8,7 @@ const Itp = Interpolations
     init_buffer(snap::Dict, iv::Union{Int, String}, dims::Union{Tuple, AbstractArray},
                 ndims::Int)
 
-Initialize a buffer for storing the data. Returns a `Dict` of `Arrays` if `iv` is a collection, otherwise
+Initialize a buffer for storing the data. Returns a `Dict` of Arraya if `iv` is a collection, otherwise
 an `Array`.
 
 #Arguments:
@@ -20,7 +20,6 @@ an `Array`.
                                     all dimensions will have same length. If Tuple/Array,
                                     must have length(dims) == ndims.
 - `ndims::Int`: number of dimensions
-
 """
 function init_buffer(snap, iv, dims, num_dims)
 
@@ -60,27 +59,8 @@ end
     amr_plane(snap::Dict; iv::Union{Int, String}, x::Float, y::Float, z::Float,
              Log::Bool, dims::Union{Int, Tuple})
 
-Return an interpolated 2d buffer of mesh-refined patch data with at a slice
-x/y/z, with dimensions dims.
-
-# Arguments:
-
-- `snap::Dict`, snapshot object
-
-# Kwargs:
-
-- iv:      String/Int/Collection of String/Ints, what quantity(/ies) to extract, default 0
-- x, y, z: Float, position at which to slice, default nothing
-- all:     Bool, whether to include guard zones, default false
-- Log:     Bool, whether to log the data, default false
-- dims:    Int/Tuple, data size in each dimension. If Int,
-            both1 dimensions will have same length. If Tuple/Array,
-            must have length(dims) 2. Default 100
-
-# Returns:
-
-- Dictionairy of Array{Float32, 2} if iv is a collection,
-    or Array{Float32, 2} if iv is Int/String
+Return a 2D array containing interpolated data of quantity `iv` in a slice `x/y/z` from all patches in a given snapshot. If `dims` is an
+`Int` the resulting array will be of size `(dims, dims)`. If `dims` is a length-2 array, the array will have size `(dims...)`. 
 """
 function amr_plane(snap; iv = 0, x = nothing, y = nothing, z = nothing,
                    Log = false, dims::Union{Int, Tuple}=100)
@@ -148,25 +128,13 @@ function amr_plane(snap; iv = 0, x = nothing, y = nothing, z = nothing,
 
 end
 
+
 """
     amr_volume(snap::Dict; iv::Union{Int, AbstractArray, String}, all::Bool,
             dims::Union{Tuple, Int}, verbose::int)
 
-Return an interpolated 3d array from all mesh-refined patch data, with size
-defined by dims.
-
-#Arguments:
-- snap: Dict, snapshot object
-
-#Kwargs:
-- iv:      String/Int/Collection of String/Ints, what quantity(ies) to extract, default 0
-- dims:    Int/Tuple, data size in each dimension. If Int,
-               all dimensions will have same length. If Tuple/Array,
-               must have length(dims) == 3. Default 100.
-
-#Returns:
-- Dictionairy of Array{Float32, 3} if iv is a collection,
-      or Array{Float32, 3} if iv is Int/String
+Return a 3D array containing interpolated data of quantity `iv` from all patches in a given snapshot. If `dims` is an
+`Int` the resulting array will be of size `(dims, dims, dims)`. If `dims` is a length-3 array, the array will have size `(dims...)`. 
 """
 function amr_volume(snap; iv::Union{Int, Array, String} = 0, all = true,
                     dims::Union{Tuple, Int}=100, verbose=0)

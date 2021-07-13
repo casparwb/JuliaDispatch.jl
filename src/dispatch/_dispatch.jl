@@ -11,8 +11,7 @@ include("../expr/_expr.jl")
 """
     snapshot(iotu::Int; run::String, data::String, verbose::Int)
 
-Parses patches and produces a dictionary with all properties of snapshot
-`iout`.
+Parses patches and returns a `Dict` with all properties of snapshot `iout`.
 
 #Arguments:
 - `iout::Int`, snapshot ID
@@ -21,16 +20,11 @@ Parses patches and produces a dictionary with all properties of snapshot
 - `data::String`, path to data (snapshots), default `"..\\data"`
 - `run::String`, path to snapshots folders relative to data, default `""`
 
-#Returns:
-- Dictionary of snapshot
 """
 function snapshot(iout=0; run="", data="../data", verbose = 0, copy = false, memmap = 1)
 
-    ### wrapper for f90nml reader ###
-    #read_nml(file) = pyimport("f90nml").read(file)
 
     ### find data- and rundirs ###
-    # rundir = _dir(data, run)
     statedict = Dict{String, Any}()
     rundir = _dir(data, run)
     if !isdir(rundir)
@@ -871,7 +865,7 @@ function _var(patch, filed, snap; verbose = 0, copy = nothing)
     return var
 end
 
-""" dont know what this is """
+
 function _h(dict)
     idx = dict["idx"]
     h = zeros(3, dict["nv"])

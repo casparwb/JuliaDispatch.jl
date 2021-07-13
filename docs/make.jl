@@ -27,6 +27,5 @@ makedocs(
 # )
 
 deploydocs(;
-    repo="github.com/casparwb/JuliaDispatch.jl.git",
-    version = nothing
+    repo="github.com/casparwb/JuliaDispatch.jl.git"
 )

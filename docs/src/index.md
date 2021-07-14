@@ -8,10 +8,6 @@ To install the package, enter the Julia package manager (Pkg) by typing `]` in t
 
 `pkg> add "https://github.com/casparwb/JuliaDispatch.jl"`
 
-```@repl
-]
-add("https://github.com/casparwb/JuliaDispatch.jl/")
-```
 
 You can check that your environment contains the package by typing (still inside Pkg)
 

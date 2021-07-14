@@ -87,84 +87,85 @@ function interpolate_2d(patch::Dict, data::AbstractArray; ax = 1, p1 = 0.5, p2 =
     return f
 end
 
-"""
-    interpolate(patch::Dict; iv::Union{Int, String}, x::Float, y::Float, z::Float,
-                Log::Bool, all::Bool)
+# """
+#     interpolate(patch::Dict; iv::Union{Int, String}, x::Float, y::Float, z::Float,
+#                 Log::Bool, all::Bool)
 
-Find the plane values of a patch at a given slice x/y/z by interpolating
-neighbouring planes.
+# Find the plane values of a patch at a given slice x/y/z by interpolating
+# neighbouring planes.
 
-# Arguments:
-- `patch::Dict`, patch object from a snapshot
+# # Arguments:
+# - `patch::Dict`, patch object from a snapshot
 
-# Kwargs:
-- `iv::Union{Int, String}`: quantity to get data of, default `0`
-- `(x, y, z)::Float`: position at which to slice, default `nothing`
-- `Log::Bool`: whether to log the data, default `false`
-- `all::Bool`: whether to include guard zones, default `false`
+# # Kwargs:
+# - `iv::Union{Int, String}`: quantity to get data of, default `0`
+# - `(x, y, z)::Float`: position at which to slice, default `nothing`
+# - `Log::Bool`: whether to log the data, default `false`
+# - `all::Bool`: whether to include guard zones, default `false`
 
-# Returns:
-- 2d array of float32, interpolated values at position x/y/z
+# # Returns:
+# - 2d array of float32, interpolated values at position x/y/z
 
-"""
-function interpolate(patch; iv = 0, x = nothing, y = nothing, z = nothing,
-                     Log=false, all=false)
+# """
+# function interpolate(patch; iv = 0, x = nothing, y = nothing, z = nothing,
+#                      Log=false, all=false, verbose=0)
 
-    if patch["guard_zones"]
-        li = patch["li"]  # lower inner
-        ui = patch["ui"]  # upper inner
-    else
-        li = ones(Int, 3) # using Static??
-        ui = patch["n"]
-    end
+#     if patch["guard_zones"] && !all
+#         li = patch["li"]  # lower inner
+#         ui = patch["ui"]  # upper inner
+#         # li = ones(Int, 3)
+#         # ui = patch["n"]
+#     else
+#         li = ones(Int, 3)
+#         ui = patch["gn"]
+#     end
 
-    xyz = [x, y, z]
-    dir = getindex((1, 2, 3), xyz .!= nothing)[1]
-    dirStr = getindex(("x", "y", "z"), xyz .!= nothing)[1]
-    ax = xyz[xyz .!= nothing][1]
 
-    n = patch["n"][dir]
+#     xyz = [x, y, z]
+#     dir = getindex((1, 2, 3), xyz .!= nothing)[1]
+#     dirStr = getindex(("x", "y", "z"), xyz .!= nothing)[1]
+#     ax = xyz[xyz .!= nothing][1]
 
-    i = findall(patch[dirStr] .< ax)[end]
+#     n = patch["n"][dir]
 
-    w = 1.0/(patch[dirStr][i+1] - patch[dirStr][i]) *
-        (ax - patch[dirStr][i])
+#     i = findall(patch[dirStr] .< ax)[end]
 
-    data = patch["var"](iv)
+#     w = 1.0/(patch[dirStr][i+1] - patch[dirStr][i]) *
+#         (ax - patch[dirStr][i])
 
-    if iv == 0 || iv == 4 || iv == "d" || iv == "e"
-        Log = true
-    end
+#     data = patch["var"](iv, all=true)
 
-    if Log
-        data = log.(data)
-    end
+#     if iv == 0 || iv == 4 || iv == "d" || iv == "e"
+#         Log = true
+#     end
 
-    if !all
-        if dir == 1
-            data = (1 - w) .* data[i,   li[2]:ui[2], li[3]:ui[3]] .+
-                        w  .* data[i+1, li[2]:ui[2], li[3]:ui[3]]
-        elseif dir == 2
-            data = (1 - w) .* data[li[1]:ui[1],i,li[3]:ui[3]] .+
-                        w  .* data[li[1]:ui[1],i+1,li[3]:ui[3]]
-            data = data'
-        else
-            data = (1 - w) .* data[li[1]:ui[1],li[2]:ui[2],i] .+
-                        w  .* data[li[1]:ui[1],li[2]:ui[2],i+1]
-        end
-    else
-        if dir == 1
-            data = (1 - w) .* data[i,   :, :] .+
-                        w  .* data[i+1, :, :]
-        elseif dir == 2
-            data = (1 - w) .* data[:,i,:] .+
-                        w  .* data[:,i+1,:]
-            data = data'
-        else
-            data = (1 - w) .* data[:,:,i] .+
-                        w  .* data[:,:,i+1]
-        end
-    end
+#     if Log
+#         data = log.(data)
+#     end
 
-    Log ? exp.(data) : data
-end
+#     # check periodicity
+#     if i == n
+#         if patch["periodic"][dir] == 1
+#             i_plus_one = 1
+#         else
+#             i_plus_one = i
+#         end
+#     else
+#         i_plus_one = i+1
+#     end
+
+#     if dir == 1
+#         data = (1 - w) .* data[i,   li[2]:ui[2], li[3]:ui[3]] .+
+#                     w  .* data[i_plus_one, li[2]:ui[2], li[3]:ui[3]]
+#     elseif dir == 2
+#         data = (1 - w) .* data[li[1]:ui[1],i,li[3]:ui[3]] .+
+#                     w  .* data[li[1]:ui[1],i_plus_one,li[3]:ui[3]]
+#         data = data'
+#     else
+#         data = (1 - w) .* data[li[1]:ui[1],li[2]:ui[2],i] .+
+#                     w  .* data[li[1]:ui[1],li[2]:ui[2],i_plus_one]
+#     end
+#     # end
+
+#     Log ? exp.(data) : data
+# end

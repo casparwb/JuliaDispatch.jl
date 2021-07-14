@@ -1,9 +1,8 @@
 
 
-using JuliaDispatch.Select, JuliaDispatch.Interpolations, Unitful
+using JuliaDispatch.Select, Unitful
 import Interpolations
 const Itp = Interpolations
-
 """
     init_buffer(snap::Dict, iv::Union{Int, String}, dims::Union{Tuple, AbstractArray},
                 ndims::Int)
@@ -63,28 +62,30 @@ Return a 2D array containing interpolated data of quantity `iv` in a slice `x/y/
 `Int` the resulting array will be of size `(dims, dims)`. If `dims` is a length-2 array, the array will have size `(dims...)`. 
 """
 function amr_plane(snap; iv = 0, x = nothing, y = nothing, z = nothing,
-                   Log = false, dims::Union{Int, Tuple}=100)
+                   Log = false, dims::Union{Int, Tuple}=100, all=false)
 
 
     xyz = [x, y, z]
-    ax = getindex((1, 2, 3), xyz .!= nothing)[1]
+    axIdx = getindex((1, 2, 3), xyz .!= nothing)[1]
+    ax = xyz[axIdx]
     dir1, dir2 = getindex((1, 2, 3), xyz .== nothing)
     dir1s, dir2s = getindex(("x", "y", "z"), xyz .== nothing)
 
-    e1s, e2s = nothing, nothing
-    if ax == 1 || ax == 2
-        e1s = [1, 2]
-        e2s = [3, 4]
-    elseif ax == 3
-        e1s = [3, 4]
-        e2s = [1, 2]
-    end
+
+    # e1s, e2s = nothing, nothing
+    # if axIdx == 1 || axIdx == 2
+    #     e1s = [1, 2]
+    #     e2s = [3, 4]
+    # elseif axIdx == 3
+    #     e1s = [3, 4]
+    #     e2s = [1, 2]
+    # end
 
     Size = copy(snap["cartesian"]["size"])
     origin = copy(snap["cartesian"]["origin"])
 
-    deleteat!(Size, ax)
-    deleteat!(origin, ax)
+    deleteat!(Size, axIdx)
+    deleteat!(origin, axIdx)
 
     buffer = init_buffer(snap, iv, dims, 2)
     if typeof(dims) <: Int
@@ -98,26 +99,35 @@ function amr_plane(snap; iv = 0, x = nothing, y = nothing, z = nothing,
       throw(ErrorException(" no patches found in [$x, $y, $z]"))
     end
 
-    d1 = range(origin[1], origin[1]+Size[1], length=n1)
-    d2 = range(origin[2], origin[2]+Size[2], length=n2)
+    d1 = range(origin[1], origin[1]+Size[1], length=n1) # axis in plane dimension 1
+    d2 = range(origin[2], origin[2]+Size[2], length=n2) # axis in plane dimension 2
+
+    interpx(itp, y, z) = itp(ax, y, z)
+    interpy(itp, x, z) = itp(x, ax, z)
+    interpz(itp, x, y) = itp(x, y, ax)
+    interp = [interpx, interpy, interpz][axIdx] 
 
     for iv in keys(buffer)
-        for patch in patches
+        for patchID in eachindex(patches)#patch in patches
+            patch = patches[patchID]
             # interpolate between planes
-            data = interpolate(patch, iv=iv, x=x, y=y, z=z, all=true)
-            e = patch["extent"]
-            e1 = e[ax, e1s]
-            e2 = e[ax, e2s]
+            # data = plane(patch, iv=iv, x=x, y=y, z=z, all=true)
 
-            d1s = findall(e1[1] .<= d1 .<= e1[2])
-            d2s = findall(e2[1] .<= d2 .<= e2[2])
 
-            itp = Itp.interpolate((patch[dir1s], patch[dir2s]), data, Itp.Gridded(Itp.Linear()))
-            @inbounds for i1 in d1s, i2 in d2s
-                buffer[iv][i1, i2] = itp(d1[i1], d2[i2])
+            d1extent = patch[dir1s]
+            d2extent = patch[dir2s]
+
+            d1s = findall(d1extent[1] .< d1 .< d1extent[end]) # indices extended by patch in plane dimension 1
+            d2s = findall(d2extent[1] .< d2 .< d2extent[end]) # indices extended by patch in plane dimension 2
+
+            # interpolate patch data
+            # itp = Itp.interpolate((patch[dir1s], patch[dir2s]), data, Itp.Gridded(Itp.Linear()))
+            itp = Itp.interpolate((patch["x"], patch["y"], patch["z"]), box(patch, iv=iv, all=true), Itp.Gridded(Itp.Linear()))
+            for i2 ∈ d2s, i1 ∈ d1s
+                # buffer[iv][i1, i2] = itp(d1[i1], d2[i2])
+                buffer[iv][i1, i2] = interp(itp, d1[i1], d2[i2]) # insert into buffer
             end
         end
-        buffer[iv] = buffer[iv]'
     end
 
     if length(keys(buffer)) == 1
@@ -157,22 +167,19 @@ function amr_volume(snap; iv::Union{Int, Array, String} = 0, all = true,
     z = range(origin[3], origin[3]+Size[3], length=nz)
     for iv in keys(buffer)
         for patch in patches
-            data = box(patch, iv=iv, verbose=verbose, all=true)
 
-            e = patch["extent"]
-            ex = e[3,1:2]
-            ey = e[3,3:4]
-            ez = e[2,1:2]
+            x_extent = patch["x"]
+            y_extent = patch["y"]
+            z_extent = patch["z"]
 
-            xs = findall(ex[1] .<= x .<= ex[2])
-            ys = findall(ey[1] .<= y .<= ey[2])
-            zs = findall(ez[1] .<= z .<= ez[2])
+            x_ids = findall(x_extent[1] .< x .< x_extent[end])
+            y_ids = findall(y_extent[1] .< y .< y_extent[end])
+            z_ids = findall(z_extent[1] .< z .< z_extent[end])
 
-            itp = Itp.interpolate((patch["x"], patch["y"], patch["z"]), data, Itp.Gridded(Itp.Linear()))
-            @inbounds for ix in xs, iy in ys, iz in zs
+            itp = Itp.interpolate((x_extent, y_extent, z_extent), box(patch, iv=iv, verbose=verbose, all=true), Itp.Gridded(Itp.Linear()))
+            @inbounds for iz in z_ids, iy in y_ids, ix in x_ids
                 buffer[iv][ix, iy, iz] = itp(x[ix], y[iy], z[iz])
             end
-
         end
     end
 
@@ -227,9 +234,11 @@ function unigrid_plane(snap::Dict; x = nothing, y = nothing, z = nothing,
 
     buffer = init_buffer(snap, iv, datashp, 2)
     for iv in keys(buffer)
-        for (idxs, patch) in values(patchDict)
+        patchkeys = keys(patchDict) |> collect
+        Base.Threads.@threads for key in patchkeys
+            idxs, patch = patchDict[key]
             im = plane(patch, x = x, y = y, z = z, iv = iv,
-                       verbose=verbose, all=all)
+                             verbose=verbose, all=all)
             
             buffer[iv][idxs[1]:idxs[2], idxs[3]:idxs[4]] = im
         end

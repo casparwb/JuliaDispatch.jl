@@ -1,4 +1,4 @@
-
+using Interpolations
 
 using StaticArrays
 """
@@ -285,85 +285,85 @@ function corner_indices(snap, patch; dir=1)
     end
 end
 
-"""
-    plane(patch::Dict; x::Number=nothing, y::Number=nothing, z::Number=nothing,
-          iv::Union{String, Int}=0, all::Bool=false, verbose::Int=0)
+# """
+#     plane(patch::Dict; x::Number=nothing, y::Number=nothing, z::Number=nothing,
+#           iv::Union{String, Int}=0, all::Bool=false, verbose::Int=0)
 
-Return patch data of quantity `iv` at a slice `x/y/z`.
+# Return patch data of quantity `iv` at a slice `x/y/z`.
 
-#Examples
-```
-julia> density_plane = plane(patch, z=-1.0, iv="d")
-```
-"""
-function plane(patch; x = nothing, y = nothing, z = nothing, iv = 0,
-                    verbose = 0, all=false)
+# #Examples
+# ```
+# julia> density_plane = plane(patch, z=-1.0, iv="d")
+# ```
+# """
+# function plane(patch; x = nothing, y = nothing, z = nothing, iv = 0,
+#                     verbose = 0, all=false)
 
 
 
-    if patch["guard_zones"]# && !all
-        #li = patch["li"]  # lower inner
-        #ui = patch["ui"]  # upper inner
-        li = ones(Int, 3)
-        ui = patch["n"]
-    else #all || !patch["guard_zones"]
-        li = ones(Int, 3) # using Static??
-        ui = patch["n"]
-    end
+#     if patch["guard_zones"]# && !all
+#         #li = patch["li"]  # lower inner
+#         #ui = patch["ui"]  # upper inner
+#         li = ones(Int, 3)
+#         ui = patch["n"]
+#     else #all || !patch["guard_zones"]
+#         li = ones(Int, 3) # using Static??
+#         ui = patch["n"]
+#     end
 
-    #@assert !all(isnothing.((x, y, z))) "plane: must give one x, y, or z-value."
+#     #@assert !all(isnothing.((x, y, z))) "plane: must give one x, y, or z-value."
 
-    variv = patch["var"](iv, verbose=verbose, all=all)
-    if !isnothing(x)
-        p = (x - patch["x"][1])/patch["ds"][1]
-        i = round(Int, p)
-        i = min(i, ui[1]-1)
-        p -= i
+#     variv = patch["var"](iv, verbose=verbose, all=all)
+#     if !isnothing(x)
+#         p = (x - patch["x"][1])/patch["ds"][1]
+#         i = round(Int, p)
+#         i = min(i, ui[1]-1)
+#         p -= i
 
-        # f = variv[i, li[2]:ui[2], li[3]:ui[3]]*(1.0 - p) +
-        #     variv[i+1, li[2]:ui[2], li[3]:ui[3]]*p
+#         # f = variv[i, li[2]:ui[2], li[3]:ui[3]]*(1.0 - p) +
+#         #     variv[i+1, li[2]:ui[2], li[3]:ui[3]]*p
 
-        f = variv[i, :, :]*(1.0 - p) +
-            variv[i+1, :, :]*p
+#         f = variv[i, :, :]*(1.0 - p) +
+#             variv[i+1, :, :]*p
 
-    elseif !isnothing(y)
-        p = (y - patch["y"][1])/patch["ds"][2]
-        i = round(Int, p)
-        i = min(i, ui[2]-1)
-        p -= i
-        # f = transpose(variv[li[1]:ui[1], i  , li[3]:ui[3]]*(1.0-p) +
-        #               variv[li[1]:ui[1], i+1, li[3]:ui[3]]*p)
-        # f = transpose(variv[:, i  , :]*(1.0-p) +
-        #               variv[:, i+1, :]*p)
-        f = (variv[:, i  , :]*(1.0-p) +
-             variv[:, i+1, :]*p)
+#     elseif !isnothing(y)
+#         p = (y - patch["y"][1])/patch["ds"][2]
+#         i = round(Int, p)
+#         i = min(i, ui[2]-1)
+#         p -= i
+#         # f = transpose(variv[li[1]:ui[1], i  , li[3]:ui[3]]*(1.0-p) +
+#         #               variv[li[1]:ui[1], i+1, li[3]:ui[3]]*p)
+#         # f = transpose(variv[:, i  , :]*(1.0-p) +
+#         #               variv[:, i+1, :]*p)
+#         f = (variv[:, i  , :]*(1.0-p) +
+#              variv[:, i+1, :]*p)
 
-    elseif !isnothing(z)
-        p = (z - patch["z"][1])/patch["ds"][3]
-        i = round(Int, p)
-        i = min(i, ui[3]-1)
-        p = p - i
-        # if i == 0
-        #     f = variv[li[1]:ui[1], li[2]:ui[2], end]*(1.0 - p) +
-        #         variv[li[1]:ui[1], li[2]:ui[2], i+1]*p
-        # else
-        #     f = variv[li[1]:ui[1], li[2]:ui[2], i]*(1.0 - p) +
-        #         variv[li[1]:ui[1], li[2]:ui[2], i+1]*p
-        # end
-        if i == 0
-            f = variv[:, :, 1]*(1.0 - p) +
-                variv[:, :, 2]*p
-        else
-            f = variv[:, :, i]*(1.0 - p) +
-                variv[:, :, i+1]*p
-        end
-    end
+#     elseif !isnothing(z)
+#         p = (z - patch["z"][1])/patch["ds"][3]
+#         i = round(Int, p)
+#         i = min(i, ui[3]-1)
+#         p = p - i
+#         # if i == 0
+#         #     f = variv[li[1]:ui[1], li[2]:ui[2], end]*(1.0 - p) +
+#         #         variv[li[1]:ui[1], li[2]:ui[2], i+1]*p
+#         # else
+#         #     f = variv[li[1]:ui[1], li[2]:ui[2], i]*(1.0 - p) +
+#         #         variv[li[1]:ui[1], li[2]:ui[2], i+1]*p
+#         # end
+#         if i == 0
+#             f = variv[:, :, 1]*(1.0 - p) +
+#                 variv[:, :, 2]*p
+#         else
+#             f = variv[:, :, i]*(1.0 - p) +
+#                 variv[:, :, i+1]*p
+#         end
+#     end
 
-    verbose > 1 && println("plane: $i, p = $i $p")
+#     verbose > 1 && println("plane: $i, p = $i $p")
 
-    return f
+#     return f
 
-end
+# end
 
 
 """
@@ -376,16 +376,156 @@ julia> density_box = box(patch, iv="d")
 ```
 """
 function box(patch; iv = 0, all=false, verbose = 0)
+    f = patch["var"](iv, verbose=verbose, all=all)
+end
+
+"""
+    plane(patch::Dict; iv::Union{Int, String}, x::Float, y::Float, z::Float,
+                Log::Bool, all::Bool)
+
+Find the plane values of a patch at a given slice x/y/z by interpolating
+neighbouring planes.
+
+# Arguments:
+- `patch::Dict`, patch object from a snapshot
+
+# Kwargs:
+- `iv::Union{Int, String}`: quantity to get data of, default `0`
+- `(x, y, z)::Float`: position at which to slice, default `nothing`
+- `Log::Bool`: whether to log the data, default `false`
+- `all::Bool`: whether to include guard zones, default `false`
+
+# Returns:
+- 2d array of float32, interpolated values at position x/y/z
+
+"""
+function plane(patch; iv = 0, x = nothing, y = nothing, z = nothing,
+                     Log=false, all=false, verbose=0)
 
     if patch["guard_zones"] && !all
         li = patch["li"]  # lower inner
         ui = patch["ui"]  # upper inner
-    else #all || !patch["guard_zones"]
-        li = ones(Int, 3) # using Static??
-        ui = patch["n"]
+        # li = ones(Int, 3)
+        # ui = patch["n"]
+    else
+        li = ones(Int, 3)
+        ui = patch["gn"]
     end
 
-    f = patch["var"](iv, verbose=verbose, all=all)#[li[1]:ui[1], li[2]:ui[2], li[3]:ui[3]]
 
-    return f
+    xyz = [x, y, z]
+    dir = getindex((1, 2, 3), xyz .!= nothing)[1]
+    dirStr = getindex(("x", "y", "z"), xyz .!= nothing)[1]
+    ax = xyz[xyz .!= nothing][1]
+
+    n = patch["n"][dir]
+
+    i = findall(patch[dirStr] .< ax)[end]
+
+    w = 1.0/(patch[dirStr][i+1] - patch[dirStr][i]) *
+        (ax - patch[dirStr][i])
+
+    data = patch["var"](iv, all=true)
+
+    if iv == 0 || iv == 4 || iv == "d" || iv == "e"
+        Log = true
+    end
+
+    if Log
+        data = log.(data)
+    end
+
+    # check periodicity
+    if i == n
+        if patch["periodic"][dir] == 1
+            i_plus_one = 1
+        else
+            i_plus_one = i
+        end
+    else
+        i_plus_one = i+1
+    end
+
+    if dir == 1
+        data = (1 - w) .* data[i,   li[2]:ui[2], li[3]:ui[3]] .+
+                    w  .* data[i_plus_one, li[2]:ui[2], li[3]:ui[3]]
+    elseif dir == 2
+        data = (1 - w) .* data[li[1]:ui[1],i,li[3]:ui[3]] .+
+                    w  .* data[li[1]:ui[1],i_plus_one,li[3]:ui[3]]
+        data = data'
+    else
+        data = (1 - w) .* data[li[1]:ui[1],li[2]:ui[2],i] .+
+                    w  .* data[li[1]:ui[1],li[2]:ui[2],i_plus_one]
+    end
+    # end
+
+    Log ? exp.(data) : data
+end
+
+
+function plane2(patch; iv = 0, x = nothing, y = nothing, z = nothing,
+    Log=false, all=false, verbose=0)
+
+    if patch["guard_zones"] && !all
+    li = patch["li"]  # lower inner
+    ui = patch["ui"]  # upper inner
+    # li = ones(Int, 3)
+    # ui = patch["n"]
+    else
+    li = ones(Int, 3)
+    ui = patch["gn"]
+    end
+
+    xyz = [x, y, z]
+    ax = getindex((1, 2, 3), xyz .!= nothing)[1]
+    dir1, dir2 = getindex((1, 2, 3), xyz .== nothing)
+    dir1s, dir2s = getindex(("x", "y", "z"), xyz .== nothing)
+
+    d1extent = patch[dir1s]
+    d2extent = patch[dir2s]
+
+    itp = Itp.interpolate((patch[dir1s], patch[dir2s]), data, Itp.Gridded(Itp.Linear()))
+
+    n = patch["n"][dir]
+
+    i = findall(patch[dirStr] .< ax)[end]
+
+    w = 1.0/(patch[dirStr][i+1] - patch[dirStr][i]) *
+    (ax - patch[dirStr][i])
+
+    data = patch["var"](iv, all=true)
+
+    if iv == 0 || iv == 4 || iv == "d" || iv == "e"
+    Log = true
+    end
+
+    if Log
+    data = log.(data)
+    end
+
+    # check periodicity
+    if i == n
+    if patch["periodic"][dir] == 1
+    i_plus_one = 1
+    else
+    i_plus_one = i
+    end
+    else
+    i_plus_one = i+1
+    end
+
+    if dir == 1
+    data = (1 - w) .* data[i,   li[2]:ui[2], li[3]:ui[3]] .+
+    w  .* data[i_plus_one, li[2]:ui[2], li[3]:ui[3]]
+    elseif dir == 2
+    data = (1 - w) .* data[li[1]:ui[1],i,li[3]:ui[3]] .+
+    w  .* data[li[1]:ui[1],i_plus_one,li[3]:ui[3]]
+    data = data'
+    else
+    data = (1 - w) .* data[li[1]:ui[1],li[2]:ui[2],i] .+
+    w  .* data[li[1]:ui[1],li[2]:ui[2],i_plus_one]
+    end
+    # end
+
+    Log ? exp.(data) : data
 end

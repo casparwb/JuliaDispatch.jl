@@ -23,8 +23,8 @@ Accepts any keyword arguments supported by the `plot`-function exported from Plo
 
 # Examples
 ``` 
-julia> plot_values_along(snap, iv="ekin", linestyle=:scatter, xlabel="x", ylabel="y")
-julia> plot_values_along(snap, iv="T", dir=3, style=:dot, label="Temperature")
+julia> plot_values_along(snap, iv="ekin", linetype=:scatter, xlabel="x", ylabel="y") # scatter plot
+julia> plot_values_along(snap, iv="T", dir=3, style=:dashdot, label="Temperature")
 julia> plot_values_along(snap, [0.0, 1.0, 2.0], iv="ekin", title="Kinetic Energy")
 ```
 """
@@ -62,8 +62,8 @@ end
 """
     histogram_along(snap::Dict, pt::Array=[0.5, 0.5, 0.5]; iv = 0, dir = 1, verbose = 0, kw...)
 
-Plot a histogram of quantity `iv` along direction `dir` through point `pt`. Accepts any keyworg argument
-accepted by the Plots.histogram function.
+Plot a histogram of quantity `iv` along direction `dir` through point `pt`. Accepts any keyword argument
+accepted by the `Plots.histogram` function.
 
 # Examples
 ```
@@ -132,7 +132,7 @@ supported by the `Plots.plot()` function, in addition to:
 julia> sliceplot(snap, iv="ekin", z=-15.0) # simple sliceplot at z=-15 of kinetic energy
 julia> sliceplot(snap, iv="sqrt(bx^2 + by^2 + bz^2)", x=10) # also accepts expressions 
 julia> sliceplot(snap, iv="d", z=1.0, center=(5, 5), width=(4, 2)) # re-centre and zoom in
-julia> sliceplot(snap, iv="d", z=1.0, resample=(400, 600)) # resize data to size (400, 600)
+julia> sliceplot(snap, iv="d", z=1.0, resample=true, dims=(400, 600)) # resize data to size (400, 600)
 ```
 """
 function sliceplot(snap::Dict,
@@ -146,8 +146,7 @@ function sliceplot(snap::Dict,
     kv = Dict{Symbol, Any}(:verbose => 0, :iv => 0,
                            :grids => false,
                            :width => nothing, :dims => 300,
-                           :center => nothing, :resample => nothing,
-                           :resampledims => nothing)
+                           :center => nothing, :resample => false)
 
     _kw_extract(kw, kv)
     iv = kv[:iv]
@@ -166,12 +165,11 @@ function sliceplot(snap::Dict,
     deleteat!(origin, axis[3])
     deleteat!(Size, axis[3])
 
-    if unigrid
+    if unigrid && !kv[:resample]
         data = unigrid_plane(snap, iv=iv, x=x, y=y, z=z)
         verbose >= 1 && println("Unigrid data with shape $(size(data))")
     else
         data = amr_plane(snap, iv=iv, x=x, y=y, z=z, dims=kv[:dims])
-        data = data'
         verbose >= 1 && println("Mesh refined data with shape $(size(data))")
     end
 
@@ -261,22 +259,15 @@ function sliceplot(snap::Dict,
         data = data[new_idxs1, new_idxs2]
     end
 
-    # resample data if requested
-    if !isnothing(kv[:resample])
-        newdims =  kv[:resample]
-        verbose >= 1 && println("Resampling to size $newdims")
-        d1, d2, data = resample(d1, d2, data, newdims)
-    end
-
     # set colorbar title if not given as a keyword arguments
     if !haskey(kw, :cbar_title)
         try
             cbar_title = latexify("$iv") # latexify only works with specific math equations
         catch
-            cbar_title = L"$iv" # produces a latexstring, which should work regardless
+            cbar_title = L"%$iv" # produces a latexstring, which should work regardless
         end
     else
-        cbar_title = L"$kw[:cbar_title]"
+        cbar_title = L"%$kw[:cbar_title]"
     end
 
     # set axis ticks (position, label)
@@ -328,24 +319,6 @@ function sliceplot(snap::Dict,
 end
 
 
-function streamplot_(d1, d2, data)
-    fig = figure(figsize=(12, 8))
-    ax = fig.gca()
-
-    u1 = zeros(Float32, size(data))
-    u2 = zeros(Float32, size(data))
-
-    u1[1:end-1,:] = diff(data, dims=1)
-    u2[:,1:end-1] = diff(data, dims=2)
-
-    # np = pyimport("numpy")
-    # D1, D2 = np.meshgrid(d1, d2)
-
-    im = ax.imshow(data, extent=[d1[1], d1[end], d2[1], d2[end]], origin="lower")
-    ax.streamplot(collect(d1), collect(d2), u1, u2, color="white", linewidth=0.2, density=1.5)
-    fig.colorbar(im)
-    return fig
-end
 
 """ 
     anim_pane(snap; ax=1, nframes=10, unigrid=true, iv=iv, reverse=false
@@ -363,7 +336,7 @@ function anim_pane(snap; ax=1, nframes=10, unigrid=true, iv=0, reverse=false,
                    start=nothing, stop=nothing, verbose=0, savepath = nothing, kw...)
 
     if isnothing(savepath)
-        throw(ArgumentError("Must give path at which to save the output animation. Aborting."))
+        throw(ArgumentError("savepath can not be nothing. Aborting."))
     end
 
     if !isnothing(start) && isnothing(stop)
@@ -383,7 +356,7 @@ function anim_pane(snap; ax=1, nframes=10, unigrid=true, iv=0, reverse=false,
     end
 
     if reverse
-        axvals = reverse(axvals)
+        axvals = Base.reverse(axvals)
     end
     
     verbose == 1 && println("panning through $ax from $(axvals[1]) to $(axvals[end])")
@@ -403,7 +376,7 @@ function anim_pane_x(snap, x; iv = 0, nframes = 10, verbose = 0,
 
     anim = @animate for i = ProgressBar(1:length(x))
         sliceplot(snap, iv=iv, unigrid=unigrid, x=x[i], title = "x = $(round(x[i], digits=2))",
-                  verbose=verbose, cbar=false, kw...)
+                  verbose=verbose, cbar=false; kw...)
     end
 
     gif(anim, savepath)
@@ -416,7 +389,7 @@ function anim_pane_y(snap, y; iv = 0, nframes = 10, verbose = 0,
 
     anim = @animate for i = ProgressBar(1:length(y))
         sliceplot(snap, iv=iv, unigrid=unigrid, y=y[i], title = "y = $(round(y[i], digits=2))",
-                  verbose=verbose, cbar=false, kw...)
+                  verbose=verbose, cbar=false; kw...)
     end
 
     gif(anim, savepath)
@@ -429,7 +402,7 @@ function anim_pane_z(snap, z; iv = 0, nframes = 10, verbose = 0,
 
     anim = @animate for i = ProgressBar(1:length(z))
         sliceplot(snap, iv=iv, unigrid=unigrid, z=z[i], title = "z = $(round(z[i], digits=2))",
-                  verbose=verbose, cbar=false, kw...)
+                  verbose=verbose, cbar=false; kw...)
     end
 
     gif(anim, savepath)
@@ -494,7 +467,7 @@ function anim_plane(;data="../data", run="", x = nothing, y = nothing, z = nothi
                     tspan=nothing, unigrid=true, step=1, savepath=nothing, verbose = 0, kw...)
 
     if isnothing(savepath)
-        throw(ArgumentError("Must give path at which to save the output animation. Aborting."))
+        throw(ArgumentError("savepath can not be nothing. Aborting."))
     end
 
     snapIDs = sort(get_snapshot_ids(data=data, run=run)) # all snapshot IDs
@@ -514,13 +487,13 @@ function anim_plane(;data="../data", run="", x = nothing, y = nothing, z = nothi
         tmax = get_snap_time(stop, data=data, run=run)
     end
     
-    snapIDs = snapIDs[start:stop]
+    snapIDs = snapIDs[start:step:stop]
 
     anim = @animate for i in snapIDs
         snap = snapshot(i, data=data, run=run, verbose = verbose)
         sliceplot(snap, iv=iv, unigrid=unigrid, x=x, y=y, z=z,
-                  verbose=verbose, kw...)
-    end 
+                  verbose=verbose; kw...)
+    end
 
     gif(anim, savepath)
     

@@ -15,7 +15,7 @@
 module JuliaDispatch
     include("Utils.jl")
     include("Select.jl")
-    include("Interpolations.jl")
+    # include("Interpolations.jl")
     include("Buffers.jl")
     include("Dispatch.jl")
     include("Graphics.jl")

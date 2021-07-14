@@ -117,7 +117,7 @@ function snapshot(iout=0; run="", data="../data", verbose = 0, copy = false, mem
     """ add patches as a list of dicts """
     verbose > 1 && println("add patches as a list of dicts") 
 
-    statedict["patches"] = Dict[]#Array{Dict, 1}([])
+    # statedict["patches"] = Dict[]#Array{Dict, 1}([])
     files = [f for f in readdir(datadir) if endswith(f, "_patches.nml")]
 
 
@@ -133,12 +133,16 @@ function snapshot(iout=0; run="", data="../data", verbose = 0, copy = false, mem
     end
 
     ids = sort(collect(keys(patch_dict)))
-    for i in ProgressBar(1:length(ids))
+    statedict["patches"] = Vector{Dict}(undef, length(ids)) # initialize array for storing patches
+
+    verbose == 1 && println("initiating patch parsing")
+    Base.Threads.@threads for i in ProgressBar(1:length(ids))
         id = ids[i]
         #p = _patch2(id, patch_dict[id], statedict)
         p = _patch2(parse(Int, id), patch_dict[id], statedict)
         _add_axes(statedict, p)
-        push!(statedict["patches"], p)
+        # push!(statedict["patches"], p)
+        statedict["patches"][i] = p
         
         if verbose == 2 && haskey(p, "idx")
             data = p["var"]("d")
@@ -500,6 +504,7 @@ function _var(patch, filed, snap; verbose = 0, copy = nothing)
 
         if typeof(iv) == typeof("d")
             iv = patch["idx"][iv]
+            iszero(iv) && throw(ErrorException("Quantity $iv not present"))
         end
 
         # iszero(iv) ? iv += 1 : nothing

@@ -52,50 +52,13 @@ function average(snap; iv=0)
         data = patch["var"](iv)    # patch data
         dvol = prod(patch["ds"])   # volume of each cell
         vol += dvol*prod(size(data))
-        f += dvol*sum(patch["var"](iv, all=false))
+        f += dvol*sum(data)
     end
+    
     return f/vol
 end
 
-function time_average(;iv = 0, run="", data="../data/")
 
-    snapshots = nothing
-
-    t_aver = 0.0
-    time = Array{Float32, 1}(undef, nsnaps)
-
-    nsnaps = get_n_snapshots(run=run, data=data)
-    for iout = 0:nsnaps-1
-        snap = snapshot(iout, run=run, data=data)
-        time[iout+1] = snap["time"]
-        t_aver += average(snap, iv=iv)
-    end
-
-    return t_aver ./ (time[end] - time[1])
-
-end
-
-function time_average(snaps, tlims=nothing; iv=0, run="", data="../data/")
-
-    if tlims != nothing
-        snaps = [snap for snap in snaps if (tlims[1] <= snap["time"] <= tlims[2])]
-    end
-
-    times = [snap["time"] for snap in snaps]
-
-    tmin = minimum(times)
-    tmax = maximum(times)
-    dt = tmax - tmin
-
-    t_aver = 0.0
-    idx = 1
-    while time <= tlims[2] || idx <= lenghth(snaps)
-         t_aver += average(snaps[idx])
-         idx += 1
-    end
-
-     return t_aver ./ dt
-end
 
 """ Horizontal average of iv in direction dir over all times """
 function time_haverage(;iv = 0, run="", data="../data", dir=3,

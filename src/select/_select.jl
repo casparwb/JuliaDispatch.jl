@@ -58,6 +58,27 @@ function patches_in(snap; x = nothing, y = nothing, z = nothing)
     return patches
 end
 
+""" 
+    patches_in(snap::Dict, span::Tuple)
+
+Return a Vector of patches that lie within a domain spanned by `span`.
+"""
+function patches_in(snap, span)
+
+    xspan, yspan, zspan = span
+    patches = Dict[]
+    # println(xspan, " ", yspan, " ", zspan)
+    for p in snap["patches"]
+        if ((xspan[1] <= p["extent"][3, 1] && xspan[2] >= p["extent"][3, 2]) &&
+           (yspan[1] <= p["extent"][1, 1] && yspan[2] >= p["extent"][1, 2]) &&
+           (zspan[1] <= p["extent"][2, 1] && zspan[2] >= p["extent"][2, 2]))
+           push!(patches, p)
+        end
+    end
+
+    return patches
+end
+
 
 """
     values_in(snap::Dict, point::Array=[0.5, 0.5, 0.5]; dir::Int=1, iv::Union{String, Int}=0, var=nothing,
@@ -368,7 +389,7 @@ end
 """
 box(patch::Dict; iv::Union{String, Int}, all::Bool, verbose::Int)
 
-Return 3D-array of data of quantity `iv` from patch. Wrapper for `patch["var"](iv, verbose=verbose, all=all)`.
+Return 3D-array of data of quantity `iv` from patch. Shorthand for `patch["var"](iv, verbose=verbose, all=all)`.
 
 # Examples
 ```
@@ -378,81 +399,6 @@ julia> density_box = box(patch, iv="d")
 function box(patch; iv = 0, all=false, verbose = 0)
     f = patch["var"](iv, verbose=verbose, all=all)
 end
-
-# """
-#     plane(patch::Dict; iv::Union{Int, String}, x::Float, y::Float, z::Float,
-#                 Log::Bool, all::Bool)
-
-# Find the plane values of a patch at a given slice x/y/z by interpolating
-# neighbouring planes.
-
-# # Examples
-# ```
-# julia> density_plane(plane(patch, iv="d", z=0.0))
-# ```
-# """
-# function plane(patch; iv = 0, x = nothing, y = nothing, z = nothing,
-#                      Log=false, all=false, verbose=0)
-
-#     if patch["guard_zones"] && !all
-#         li = patch["li"]  # lower inner
-#         ui = patch["ui"]  # upper inner
-#         # li = ones(Int, 3)
-#         # ui = patch["n"]
-#     else
-#         li = ones(Int, 3)
-#         ui = patch["gn"]
-#     end
-
-
-#     xyz = [x, y, z]
-#     dir = getindex((1, 2, 3), xyz .!= nothing)[1]
-#     dirStr = getindex(("x", "y", "z"), xyz .!= nothing)[1]
-#     ax = xyz[xyz .!= nothing][1]
-
-#     n = patch["n"][dir]
-
-#     i = findall(patch[dirStr] .< ax)[end]
-
-#     w = 1.0/(patch[dirStr][i+1] - patch[dirStr][i]) *
-#         (ax - patch[dirStr][i])
-
-#     data = patch["var"](iv, all=true)
-
-#     if iv == 0 || iv == 4 || iv == "d" || iv == "e"
-#         Log = true
-#     end
-
-#     if Log
-#         data = log.(data)
-#     end
-
-#     # check periodicity
-#     if i == n
-#         if patch["periodic"][dir] == 1
-#             i_plus_one = 1
-#         else
-#             i_plus_one = i
-#         end
-#     else
-#         i_plus_one = i+1
-#     end
-
-#     if dir == 1
-#         data = (1 - w) .* data[i,   li[2]:ui[2], li[3]:ui[3]] .+
-#                     w  .* data[i_plus_one, li[2]:ui[2], li[3]:ui[3]]
-#     elseif dir == 2
-#         data = (1 - w) .* data[li[1]:ui[1],i,li[3]:ui[3]] .+
-#                     w  .* data[li[1]:ui[1],i_plus_one,li[3]:ui[3]]
-#         data = data'
-#     else
-#         data = (1 - w) .* data[li[1]:ui[1],li[2]:ui[2],i] .+
-#                     w  .* data[li[1]:ui[1],li[2]:ui[2],i_plus_one]
-#     end
-#     # end
-
-#     Log ? exp.(data) : data
-# end
 
 
 """
@@ -464,7 +410,7 @@ neighbouring planes.
 
 # Examples
 ```
-julia> density_plane(plane(patch, iv="d", z=0.0))
+julia> density_plane = plane(patch, iv="d", z=0.0)
 ```
 """
 function plane(patch; iv = 0, x = nothing, y = nothing, z = nothing,
@@ -481,15 +427,11 @@ function plane(patch; iv = 0, x = nothing, y = nothing, z = nothing,
         ui = patch["n"]
     end
 
-    # check which axes have periodic boundaries and use this in the interpolation
-    bcs = tuple([isone(i) ? Periodic() : Throw() for i in patch["periodic"]]...)
-
-    verbose == 2 && println("interpolating with boundary conditions: $bcs")
-
     # construct interpolations object with knots, data, and boundary conditions
     itp = LinearInterpolation((patch["x"], patch["y"], patch["z"]), 
                                box(patch, iv=iv, all=true), 
-                               extrapolation_bc = bcs)
+                               extrapolation_bc = Throw())
+
     if !isnothing(x)
         verbose == 1 && println("plane at x = $x")
         return itp(x, patch["y"], patch["z"])[li[2]:ui[2], li[3]:ui[3]] # interpolate in x-slice

@@ -1,8 +1,7 @@
 
 
 using JuliaDispatch.Select, Unitful
-import Interpolations
-const Itp = Interpolations
+using Interpolations
 """
     init_buffer(snap::Dict, iv::Union{Int, String}, dims::Union{Tuple, AbstractArray},
                 ndims::Int)
@@ -62,7 +61,7 @@ Return a 2D array containing interpolated data of quantity `iv` in a slice `x/y/
 `Int` the resulting array will be of size `(dims, dims)`. If `dims` is a length-2 array, the array will have size `(dims...)`. 
 """
 function amr_plane(snap; iv = 0, x = nothing, y = nothing, z = nothing,
-                   Log = false, dims::Union{Int, Tuple}=100, all=false)
+                   Log = false, dims::Union{Int, Tuple}=100, all=false, span=nothing)
 
 
     xyz = [x, y, z]
@@ -71,15 +70,6 @@ function amr_plane(snap; iv = 0, x = nothing, y = nothing, z = nothing,
     dir1, dir2 = getindex((1, 2, 3), xyz .== nothing)
     dir1s, dir2s = getindex(("x", "y", "z"), xyz .== nothing)
 
-
-    # e1s, e2s = nothing, nothing
-    # if axIdx == 1 || axIdx == 2
-    #     e1s = [1, 2]
-    #     e2s = [3, 4]
-    # elseif axIdx == 3
-    #     e1s = [3, 4]
-    #     e2s = [1, 2]
-    # end
 
     Size = copy(snap["cartesian"]["size"])
     origin = copy(snap["cartesian"]["origin"])
@@ -99,8 +89,57 @@ function amr_plane(snap; iv = 0, x = nothing, y = nothing, z = nothing,
       throw(ErrorException(" no patches found in [$x, $y, $z]"))
     end
 
-    d1 = range(origin[1], origin[1]+Size[1], length=n1) # axis in plane axis 1
-    d2 = range(origin[2], origin[2]+Size[2], length=n2) # axis in plane axis 2
+    axis1 = range(origin[1], origin[1]+Size[1], length=n1) # axis in plane axis 1
+    axis2 = range(origin[2], origin[2]+Size[2], length=n2) # axis in plane axis 2
+    if !isnothing(span)
+    # else
+        axis1_span, axis2_span = span
+
+        snapshot_span = [(snap["cartesian"]["origin"][i], snap["cartesian"]["origin"][i] + snap["cartesian"]["size"][i]) for i = 1:3]
+        deleteat!(snapshot_span, ax)
+        
+        # check if given span extends beyond boundary and if corresponding axis is periodic
+        axis1_over, axis1_under = false, false
+        if (snapshot_span[1][1] < axis1_span[1])  
+            axis1_under = true
+        elseif (snapshot_span[1][2] > axis1_span[2])
+            axis1_over = true
+        end
+
+        any(axis1_over, axis1_under) && iszero(snap["periodic"][ids[1]]) && throw(ArgumentError("axis $(ids[1]) is not periodic"))
+
+        axis2_over, axis2_under = false, false
+        if (snapshot_span[1][1] < axis2_span[1])  
+            axis2_under = true
+        elseif (snapshot_span[1][2] > axis2_span[2])
+            axis2_over = true
+        end
+
+        any((axis1_over, axis1_under)) && iszero(snap["periodic"][ids[2]]) && throw(ArgumentError("axis $(ids[2]) is not periodic"))
+
+        sub_axis1 = range(axis1_span[1], axis1_span[2], length=n1) # axis in plane axis 1
+        sub_axis2 = range(axis2_span[1], axis2_span[2], length=n2) # axis in plane axis 2
+        if any((axis1_under, axis1_over, axis2_under, axis2_over)) 
+            
+            if axis1_under
+                ids = findall(sub_axis1 .< axis1_span[1])
+                sub_axis1[ids] = range(axis1[end], stop=sub_axis1[ids[end]-1], length=length(ids))
+            elseif axis1_over
+                ids = findall(axis1 .> axis1_span[2])
+                sub_axis1[ids] = range(axis1[1], stop=sub_axis1[ids[1]-1], length=length(ids))
+            end
+
+            if axis2_under
+                ids = findall(sub_axis2 .< axis2_span[1])
+            elseif axis2_over
+                ids = findall(sub_axis2 .> axis2_span[2])
+            end
+
+        end
+
+
+        
+    end
 
     interpx(itp, y, z) = itp(ax, y, z)
     interpy(itp, x, z) = itp(x, ax, z)
@@ -108,24 +147,29 @@ function amr_plane(snap; iv = 0, x = nothing, y = nothing, z = nothing,
     interp = [interpx, interpy, interpz][axIdx] 
 
     for iv in keys(buffer)
-        for patchID in eachindex(patches)#patch in patches
+        Base.Threads.@threads for patchID in eachindex(patches)
             patch = patches[patchID]
-            # interpolate between planes
-            # data = plane(patch, iv=iv, x=x, y=y, z=z, all=true)
 
-            d1extent = patch[dir1s]
-            d2extent = patch[dir2s]
+            if patch["guard_zones"] && !all
+                li = patch["li"] .- 1  # lower inner
+                ui = patch["ui"] .+ 1  # upper inner
+            elseif patch["guard_zones"] && all
+                li = ones(Int, 3)
+                ui = patch["gn"]
+            else
+                li = ones(Int, 3)
+                ui = patch["n"]
+            end
 
-            d1s = findall(d1extent[1] .< d1 .< d1extent[end]) # indices extended by patch in plane axis 1
-            d2s = findall(d2extent[1] .< d2 .< d2extent[end]) # indices extended by patch in plane axis 2
+            axis1extent = patch[dir1s][li[dir1]:ui[dir1]]
+            axis2extent = patch[dir2s][li[dir2]:ui[dir2]]
 
-            # create interpolation object of patch data
-            # itp = Itp.interpolate((patch[dir1s], patch[dir2s]), data, Itp.Gridded(Itp.Linear()))
-            itp = LinearInterpolation((patch["x"], patch["y"], patch["z"]), box(patch, iv=iv, all=true), 
-                                       extrapolation_bc = Bool(patch["periodic"][axIdx]) ? Periodic() : Throw())
-            for i2 ∈ d2s, i1 ∈ d1s
-                # buffer[iv][i1, i2] = itp(d1[i1], d2[i2])
-                buffer[iv][i1, i2] = interp(itp, d1[i1], d2[i2]) # interpolate and insert into buffer
+            axis1_indices = findall(axis1extent[1] .< axis1 .< axis1extent[end]) # indices extended by patch in plane axis 1
+            axis2_indices = findall(axis2extent[1] .< axis2 .< axis2extent[end]) # indices extended by patch in plane axis 2
+
+            itp = LinearInterpolation((patch["x"], patch["y"], patch["z"]), box(patch, iv=iv, all=true), extrapolation_bc=Throw())
+            for i2 ∈ axis2_indices, i1 ∈ axis1_indices
+                buffer[iv][i1, i2] = interp(itp, axis1[i1], axis2[i2]) # interpolate and insert into buffer
             end
         end
     end
@@ -146,8 +190,8 @@ end
 Return a 3D array containing interpolated data of quantity `iv` from all patches in a given snapshot. If `dims` is an
 `Int` the resulting array will be of size `(dims, dims, dims)`. If `dims` is a length-3 array, the array will have size `(dims...)`. 
 """
-function amr_volume(snap; iv::Union{Int, Array, String} = 0, all = true,
-                    dims::Union{Tuple, Int}=100, verbose=0)
+function amr_volume(snap; iv::Union{Int, Array, String} = 0, all = false,
+                    dims::Union{Tuple, Int}=100, verbose=0, span=nothing)
 
 
     if typeof(dims) <: Tuple
@@ -157,26 +201,47 @@ function amr_volume(snap; iv::Union{Int, Array, String} = 0, all = true,
     end
 
     buffer = init_buffer(snap, iv, dims, 3)
-    patches = snap["patches"]
-
+    
     Size = snap["cartesian"]["size"]
     origin = snap["cartesian"]["origin"]
+    
+    if isnothing(span)
+        x = range(origin[1], origin[1]+Size[1], length=nx)
+        y = range(origin[2], origin[2]+Size[2], length=ny)
+        z = range(origin[3], origin[3]+Size[3], length=nz)
+        patches = patches_in(snap, span)
+        # patches = snap["patches"]
+    else
+        x_span, y_span, z_span = span
+        x = range(x_span[1], x_span[2], length=nx)
+        y = range(y_span[1], y_span[2], length=ny)
+        z = range(z_span[1], z_span[2], length=nz)
+        patches = snap["patches"]
+    end
 
-    x = range(origin[1], origin[1]+Size[1], length=nx)
-    y = range(origin[2], origin[2]+Size[2], length=ny)
-    z = range(origin[3], origin[3]+Size[3], length=nz)
     for iv in keys(buffer)
-        for patch in patches
+        Base.Threads.@threads for patch in patches
 
-            x_extent = patch["x"]
-            y_extent = patch["y"]
-            z_extent = patch["z"]
+            if patch["guard_zones"] && !all
+                li = patch["li"] .- 1  # lower inner
+                ui = patch["ui"] .+ 1  # upper inner
+            elseif patch["guard_zones"] && all
+                li = ones(Int, 3)
+                ui = patch["gn"]
+            else
+                li = ones(Int, 3)
+                ui = patch["n"]
+            end
+
+            x_extent = patch["x"][li[1]:ui[1]]
+            y_extent = patch["y"][li[2]:ui[2]]
+            z_extent = patch["z"][li[3]:ui[3]]
 
             x_ids = findall(x_extent[1] .< x .< x_extent[end])
             y_ids = findall(y_extent[1] .< y .< y_extent[end])
             z_ids = findall(z_extent[1] .< z .< z_extent[end])
 
-            itp = Itp.interpolate((x_extent, y_extent, z_extent), box(patch, iv=iv, verbose=verbose, all=true), Itp.Gridded(Itp.Linear()))
+            itp = LinearInterpolation((patch["x"], patch["y"], patch["z"]), box(patch, iv=iv, verbose=verbose, all=true), extrapolation_bc=Throw())
             @inbounds for iz in z_ids, iy in y_ids, ix in x_ids
                 buffer[iv][ix, iy, iz] = itp(x[ix], y[iy], z[iz])
             end
@@ -198,10 +263,12 @@ and number of cells. Returns a `Dict` if `iv` is a collection, otherwise a `Matr
 
 """
 function unigrid_plane(snap::Dict; x = nothing, y = nothing, z = nothing,
-                      iv = 0, verbose=0, all=false)
+                      iv = 0, verbose=0, all=false, span = nothing)
 
     xyz = [x, y, z]
-    ax = getindex((1, 2, 3), xyz .!= nothing)[1]
+    ids = [1, 2, 3]
+    ax = getindex(ids, xyz .!= nothing)[1]
+    deleteat!(ids, ax)
 
     patches = patches_in(snap, x=x, y=y, z=z)
     if length(patches) == 0
@@ -214,19 +281,52 @@ function unigrid_plane(snap::Dict; x = nothing, y = nothing, z = nothing,
     patchDict = Dict{Int, Tuple{NTuple{4,Int64}, Dict}}()
     for p in patches
         idxs = corner_indices(snap, p, dir=ax)
-        if idxs[2] > n1
-            n1 = idxs[2]
-        end
 
-        if idxs[4] > n2
-            n2 = idxs[4]
-        end
+        n1 = max(n1, idxs[2])
+        n2 = max(n2, idxs[4])
 
         patchDict[p["id"]] = (idxs, p)
     end
     datashp = [n1, n2]
 
     verbose >= 1 && println("data shape: $datashp") 
+
+    if !isnothing(span)
+        
+        snapshot_span = [(snap["cartesian"]["origin"][i], snap["cartesian"]["origin"][i] + snap["cartesian"]["size"][i]) for i = 1:3]
+        deleteat!(snapshot_span, ax)
+        
+        # check if given span extends beyond boundary and if corresponding axis is periodic
+        axis1_span, axis2_span = span
+        if ((snapshot_span[1][1] < axis1_span[1]) || (snapshot_span[1][2] > axis1_span[2]))    
+                iszero(snap["periodic"][ids[1]]) && throw(ArgumentError("axis $(ids[1]) is not periodic"))
+        end
+
+        if ((snapshot_span[2][1] < axis2_span[1]) || (snapshot_span[2][2] > axis2_span[2]))
+            iszero(snap["periodic"][ids[2]]) && throw(ArgumentError("axis $(ids[2]) is not periodic"))
+        end
+
+        span = Array([span...])
+        span = tuple(insert!(span, ax, (xyz[ax]-1, xyz[ax]+1))...)
+
+        max_ids = [1, 1]
+        min_ids = [n1, n1]
+
+        for patch in patches_in(snap, span)
+            idxs = corner_indices(snap, patch, dir=ax)
+
+            max_ids[1] = max(max_ids[1], idxs[2])
+            max_ids[2] = max(max_ids[2], idxs[4])
+
+            min_ids[1] = min(min_ids[1], idxs[1])
+            min_ids[2] = min(min_ids[2], idxs[3])
+        end
+
+    else
+        max_ids = [n1, n2]
+        min_ids = [1, 1]
+
+    end
 
 
     buffer = init_buffer(snap, iv, datashp, 2)
@@ -242,7 +342,7 @@ function unigrid_plane(snap::Dict; x = nothing, y = nothing, z = nothing,
     end
 
     if length(keys(buffer)) == 1
-        return collect(values(buffer))[1]
+        return collect(values(buffer))[1][min_ids[2]:max_ids[2], min_ids[1]:max_ids[1]]
     else
         return buffer
     end

@@ -5,7 +5,7 @@
 
 !!! note "Multi-threading"
 
-    `JuliaDispatch` uses multi-threading to speed up the process of parsing patches. It is recommend you start your Julia session with more than one thread. This can be done by typing `julia -threads N` when starting Julia, where `N` is the number of threads. You can also do this using the environment variable by setting `export JULIA_NUM_THREADS=N`. See [docs]https://docs.julialang.org/en/v1/manual/multi-threading/) for more information.
+    `JuliaDispatch` uses multi-threading to speed up the process of parsing patches. It is recommend you start your Julia session with more than one thread. This can be done by typing `julia -threads N` when starting Julia, where `N` is the number of threads. You can also do this using the environment variable by setting `export JULIA_NUM_THREADS=N`. See [docs](https://docs.julialang.org/en/v1/manual/multi-threading/) for more information.
 
 Open your Julia REPL terminal and type ']' to enter the package manager, followed by
 

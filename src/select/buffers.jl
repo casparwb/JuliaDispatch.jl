@@ -99,8 +99,8 @@ function amr_plane(snap; iv = 0, x = nothing, y = nothing, z = nothing,
       throw(ErrorException(" no patches found in [$x, $y, $z]"))
     end
 
-    d1 = range(origin[1], origin[1]+Size[1], length=n1) # axis in plane dimension 1
-    d2 = range(origin[2], origin[2]+Size[2], length=n2) # axis in plane dimension 2
+    d1 = range(origin[1], origin[1]+Size[1], length=n1) # axis in plane axis 1
+    d2 = range(origin[2], origin[2]+Size[2], length=n2) # axis in plane axis 2
 
     interpx(itp, y, z) = itp(ax, y, z)
     interpy(itp, x, z) = itp(x, ax, z)
@@ -113,19 +113,19 @@ function amr_plane(snap; iv = 0, x = nothing, y = nothing, z = nothing,
             # interpolate between planes
             # data = plane(patch, iv=iv, x=x, y=y, z=z, all=true)
 
-
             d1extent = patch[dir1s]
             d2extent = patch[dir2s]
 
-            d1s = findall(d1extent[1] .< d1 .< d1extent[end]) # indices extended by patch in plane dimension 1
-            d2s = findall(d2extent[1] .< d2 .< d2extent[end]) # indices extended by patch in plane dimension 2
+            d1s = findall(d1extent[1] .< d1 .< d1extent[end]) # indices extended by patch in plane axis 1
+            d2s = findall(d2extent[1] .< d2 .< d2extent[end]) # indices extended by patch in plane axis 2
 
-            # interpolate patch data
+            # create interpolation object of patch data
             # itp = Itp.interpolate((patch[dir1s], patch[dir2s]), data, Itp.Gridded(Itp.Linear()))
-            itp = Itp.interpolate((patch["x"], patch["y"], patch["z"]), box(patch, iv=iv, all=true), Itp.Gridded(Itp.Linear()))
+            itp = LinearInterpolation((patch["x"], patch["y"], patch["z"]), box(patch, iv=iv, all=true), 
+                                       extrapolation_bc = Bool(patch["periodic"][axIdx]) ? Periodic() : Throw())
             for i2 ∈ d2s, i1 ∈ d1s
                 # buffer[iv][i1, i2] = itp(d1[i1], d2[i2])
-                buffer[iv][i1, i2] = interp(itp, d1[i1], d2[i2]) # insert into buffer
+                buffer[iv][i1, i2] = interp(itp, d1[i1], d2[i2]) # interpolate and insert into buffer
             end
         end
     end
@@ -195,9 +195,6 @@ end
 
 Return a 2d array of joined patch data in a slice at `x/y/z`. All patches in given plane must have same shape, size,
 and number of cells. Returns a `Dict` if `iv` is a collection, otherwise a `Matrix`.
-
-#Arguments:
-- `snap::Dict`, snapshot object
 
 """
 function unigrid_plane(snap::Dict; x = nothing, y = nothing, z = nothing,

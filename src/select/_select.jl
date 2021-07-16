@@ -13,9 +13,6 @@ to axis values
 function values_along(snap, point=[0.5, 0.5, 0.5];
                     dir=1, iv=0, var=nothing, verbose = 0, all = false)
                     
-    # if haskey(snap, "patches")
-    #     patches = snap["patches"]
-    # end
 
     patches = patches_along(snap, point, dir = dir, verbose = verbose)
 
@@ -39,7 +36,7 @@ end
 """ 
     patches_in(snap::Dict; x::Number=nothing, y::Number=nothing, z::Number=nothing)
 
-Return an array of patches that lie within a given plane. 
+Return a Vector of patches that lie within a given plane. 
 """
 function patches_in(snap; x = nothing, y = nothing, z = nothing)
 
@@ -203,7 +200,6 @@ function patches_along(snap, point=[0.5, 0.5, 0.5]; dir = 1, verbose=0)
 
     pt = copy(point)
 
-    ## ADD VERBOSE ??? ###
 
     p = patch_at(patches, pt)
 
@@ -215,15 +211,15 @@ function patches_along(snap, point=[0.5, 0.5, 0.5]; dir = 1, verbose=0)
             if !isnothing(p)
                 p1 = p
             end
-    end
+        end
 
-    p = p1
-    out = []
-    while !isnothing(p)
-        push!(out, p)
-        pt[dir] = p["position"][dir] + p["size"][dir]*0.6
-        p = patch_at(patches, pt)
-    end
+        p = p1
+        out = []
+        while !isnothing(p)
+            push!(out, p)
+            pt[dir] = p["position"][dir] + p["size"][dir]*0.6
+            p = patch_at(patches, pt)
+        end
     else
         out = nothing
     end
@@ -242,7 +238,7 @@ function patch_at(patches, point=[0.5, 0.5, 0.5]; verbose=0)
     level = -1
     p1 = nothing
     @inbounds for p in patches
-        if is_inside(p, point, verbose)
+        if is_inside(p, point, verbose=verbose)
             p["level"] > level ? p1 = p : level = p["level"]
         end
     end
@@ -251,15 +247,18 @@ function patch_at(patches, point=[0.5, 0.5, 0.5]; verbose=0)
 
 end
 
-function is_inside(p, point, verbose)
 """
-Return true/false depending on if the point is inside the patch
+    is_inside(p::Dict, point::Array)
+
+Return true/false depending on if `point` is inside `patch`.
 """
+function is_inside(p, point; verbose=0)
 
-left = point .>= p["llc_cart"]
-right = point .<= p["llc_cart"] + p["size"]
+    verbose == 1 && println("""checking in $point is inside patch $(patch["id"])""")
+    left = point .>= p["llc_cart"]
+    right = point .<= p["llc_cart"] + p["size"]
 
-all(left) && all(right)
+    all(left) && all(right)
 
 end
 
@@ -369,8 +368,9 @@ end
 """
 box(patch::Dict; iv::Union{String, Int}, all::Bool, verbose::Int)
 
-Return 3D-array of data of quantity `iv` from patch.
+Return 3D-array of data of quantity `iv` from patch. Wrapper for `patch["var"](iv, verbose=verbose, all=all)`.
 
+# Examples
 ```
 julia> density_box = box(patch, iv="d")
 ```
@@ -379,6 +379,82 @@ function box(patch; iv = 0, all=false, verbose = 0)
     f = patch["var"](iv, verbose=verbose, all=all)
 end
 
+# """
+#     plane(patch::Dict; iv::Union{Int, String}, x::Float, y::Float, z::Float,
+#                 Log::Bool, all::Bool)
+
+# Find the plane values of a patch at a given slice x/y/z by interpolating
+# neighbouring planes.
+
+# # Examples
+# ```
+# julia> density_plane(plane(patch, iv="d", z=0.0))
+# ```
+# """
+# function plane(patch; iv = 0, x = nothing, y = nothing, z = nothing,
+#                      Log=false, all=false, verbose=0)
+
+#     if patch["guard_zones"] && !all
+#         li = patch["li"]  # lower inner
+#         ui = patch["ui"]  # upper inner
+#         # li = ones(Int, 3)
+#         # ui = patch["n"]
+#     else
+#         li = ones(Int, 3)
+#         ui = patch["gn"]
+#     end
+
+
+#     xyz = [x, y, z]
+#     dir = getindex((1, 2, 3), xyz .!= nothing)[1]
+#     dirStr = getindex(("x", "y", "z"), xyz .!= nothing)[1]
+#     ax = xyz[xyz .!= nothing][1]
+
+#     n = patch["n"][dir]
+
+#     i = findall(patch[dirStr] .< ax)[end]
+
+#     w = 1.0/(patch[dirStr][i+1] - patch[dirStr][i]) *
+#         (ax - patch[dirStr][i])
+
+#     data = patch["var"](iv, all=true)
+
+#     if iv == 0 || iv == 4 || iv == "d" || iv == "e"
+#         Log = true
+#     end
+
+#     if Log
+#         data = log.(data)
+#     end
+
+#     # check periodicity
+#     if i == n
+#         if patch["periodic"][dir] == 1
+#             i_plus_one = 1
+#         else
+#             i_plus_one = i
+#         end
+#     else
+#         i_plus_one = i+1
+#     end
+
+#     if dir == 1
+#         data = (1 - w) .* data[i,   li[2]:ui[2], li[3]:ui[3]] .+
+#                     w  .* data[i_plus_one, li[2]:ui[2], li[3]:ui[3]]
+#     elseif dir == 2
+#         data = (1 - w) .* data[li[1]:ui[1],i,li[3]:ui[3]] .+
+#                     w  .* data[li[1]:ui[1],i_plus_one,li[3]:ui[3]]
+#         data = data'
+#     else
+#         data = (1 - w) .* data[li[1]:ui[1],li[2]:ui[2],i] .+
+#                     w  .* data[li[1]:ui[1],li[2]:ui[2],i_plus_one]
+#     end
+#     # end
+
+#     Log ? exp.(data) : data
+# end
+
+
 """
     plane(patch::Dict; iv::Union{Int, String}, x::Float, y::Float, z::Float,
                 Log::Bool, all::Bool)
@@ -386,18 +462,10 @@ end
 Find the plane values of a patch at a given slice x/y/z by interpolating
 neighbouring planes.
 
-# Arguments:
-- `patch::Dict`, patch object from a snapshot
-
-# Kwargs:
-- `iv::Union{Int, String}`: quantity to get data of, default `0`
-- `(x, y, z)::Float`: position at which to slice, default `nothing`
-- `Log::Bool`: whether to log the data, default `false`
-- `all::Bool`: whether to include guard zones, default `false`
-
-# Returns:
-- 2d array of float32, interpolated values at position x/y/z
-
+# Examples
+```
+julia> density_plane(plane(patch, iv="d", z=0.0))
+```
 """
 function plane(patch; iv = 0, x = nothing, y = nothing, z = nothing,
                      Log=false, all=false, verbose=0)
@@ -405,127 +473,35 @@ function plane(patch; iv = 0, x = nothing, y = nothing, z = nothing,
     if patch["guard_zones"] && !all
         li = patch["li"]  # lower inner
         ui = patch["ui"]  # upper inner
-        # li = ones(Int, 3)
-        # ui = patch["n"]
-    else
+    elseif patch["guard_zones"] && all
         li = ones(Int, 3)
         ui = patch["gn"]
-    end
-
-
-    xyz = [x, y, z]
-    dir = getindex((1, 2, 3), xyz .!= nothing)[1]
-    dirStr = getindex(("x", "y", "z"), xyz .!= nothing)[1]
-    ax = xyz[xyz .!= nothing][1]
-
-    n = patch["n"][dir]
-
-    i = findall(patch[dirStr] .< ax)[end]
-
-    w = 1.0/(patch[dirStr][i+1] - patch[dirStr][i]) *
-        (ax - patch[dirStr][i])
-
-    data = patch["var"](iv, all=true)
-
-    if iv == 0 || iv == 4 || iv == "d" || iv == "e"
-        Log = true
-    end
-
-    if Log
-        data = log.(data)
-    end
-
-    # check periodicity
-    if i == n
-        if patch["periodic"][dir] == 1
-            i_plus_one = 1
-        else
-            i_plus_one = i
-        end
     else
-        i_plus_one = i+1
+        li = ones(Int, 3)
+        ui = patch["n"]
     end
 
-    if dir == 1
-        data = (1 - w) .* data[i,   li[2]:ui[2], li[3]:ui[3]] .+
-                    w  .* data[i_plus_one, li[2]:ui[2], li[3]:ui[3]]
-    elseif dir == 2
-        data = (1 - w) .* data[li[1]:ui[1],i,li[3]:ui[3]] .+
-                    w  .* data[li[1]:ui[1],i_plus_one,li[3]:ui[3]]
-        data = data'
-    else
-        data = (1 - w) .* data[li[1]:ui[1],li[2]:ui[2],i] .+
-                    w  .* data[li[1]:ui[1],li[2]:ui[2],i_plus_one]
-    end
-    # end
+    # check which axes have periodic boundaries and use this in the interpolation
+    bcs = tuple([isone(i) ? Periodic() : Throw() for i in patch["periodic"]]...)
 
-    Log ? exp.(data) : data
+    verbose == 2 && println("interpolating with boundary conditions: $bcs")
+
+    # construct interpolations object with knots, data, and boundary conditions
+    itp = LinearInterpolation((patch["x"], patch["y"], patch["z"]), 
+                               box(patch, iv=iv, all=true), 
+                               extrapolation_bc = bcs)
+    if !isnothing(x)
+        verbose == 1 && println("plane at x = $x")
+        return itp(x, patch["y"], patch["z"])[li[2]:ui[2], li[3]:ui[3]] # interpolate in x-slice
+
+    elseif !isnothing(y)
+        verbose == 1 && println("plane at y = $y")
+        return itp(patch["x"], y, patch["z"])[li[1]:ui[1], li[3]:ui[3]] # interpolate in y-slice
+
+    elseif !isnothing(z)
+        verbose == 1 && println("plane at z = $z")
+        return itp(patch["x"], patch["y"], z)[li[1]:ui[1], li[2]:ui[2]] # interpolate in z-slice
+    end
 end
 
 
-function plane2(patch; iv = 0, x = nothing, y = nothing, z = nothing,
-    Log=false, all=false, verbose=0)
-
-    if patch["guard_zones"] && !all
-    li = patch["li"]  # lower inner
-    ui = patch["ui"]  # upper inner
-    # li = ones(Int, 3)
-    # ui = patch["n"]
-    else
-    li = ones(Int, 3)
-    ui = patch["gn"]
-    end
-
-    xyz = [x, y, z]
-    ax = getindex((1, 2, 3), xyz .!= nothing)[1]
-    dir1, dir2 = getindex((1, 2, 3), xyz .== nothing)
-    dir1s, dir2s = getindex(("x", "y", "z"), xyz .== nothing)
-
-    d1extent = patch[dir1s]
-    d2extent = patch[dir2s]
-
-    itp = Itp.interpolate((patch[dir1s], patch[dir2s]), data, Itp.Gridded(Itp.Linear()))
-
-    n = patch["n"][dir]
-
-    i = findall(patch[dirStr] .< ax)[end]
-
-    w = 1.0/(patch[dirStr][i+1] - patch[dirStr][i]) *
-    (ax - patch[dirStr][i])
-
-    data = patch["var"](iv, all=true)
-
-    if iv == 0 || iv == 4 || iv == "d" || iv == "e"
-    Log = true
-    end
-
-    if Log
-    data = log.(data)
-    end
-
-    # check periodicity
-    if i == n
-    if patch["periodic"][dir] == 1
-    i_plus_one = 1
-    else
-    i_plus_one = i
-    end
-    else
-    i_plus_one = i+1
-    end
-
-    if dir == 1
-    data = (1 - w) .* data[i,   li[2]:ui[2], li[3]:ui[3]] .+
-    w  .* data[i_plus_one, li[2]:ui[2], li[3]:ui[3]]
-    elseif dir == 2
-    data = (1 - w) .* data[li[1]:ui[1],i,li[3]:ui[3]] .+
-    w  .* data[li[1]:ui[1],i_plus_one,li[3]:ui[3]]
-    data = data'
-    else
-    data = (1 - w) .* data[li[1]:ui[1],li[2]:ui[2],i] .+
-    w  .* data[li[1]:ui[1],li[2]:ui[2],i_plus_one]
-    end
-    # end
-
-    Log ? exp.(data) : data
-end

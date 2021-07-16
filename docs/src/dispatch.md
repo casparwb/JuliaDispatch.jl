@@ -2,21 +2,29 @@
 
 This module contains the `snapshot`-function, which is used for reading a snapshot and parsing the patches.
 
-## Usage
 
 After having imported the `JuliaDispatch` module into your workspace, simply do
 
-`julia> using JuliaDispatch.Dispatch`
+```@repl
+using JuliaDispatch.Dispatch
+```
 
 The function `snapshot` is then available. See end of page for documentation and examples.
 
 When reading in a snapshot with the `snapshot` function, a dictionary will be returned. All the properties of the snapshot can be accessed using square brackets and a string with the name of the property. For example, if you want to know the time at which the snapshot was taken, do
 
-`julia> snap["time"]`
+```julia
+println(snap["time"])
+```
 
+All the patches and their metadata are stored in the `"patches"` key of the snapshot. This returns a vector with each entry containing the patch metadata in the form of another dictionary. For example
 
+```julia
+patch1 = snap["patches"][1]
+println(patch1["id"])
+```
 
-## Function Documentation
+extracts the first patch and prints its `id`.
 
 ```@docs
 JuliaDispatch.Dispatch.snapshot

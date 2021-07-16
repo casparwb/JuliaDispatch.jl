@@ -11,7 +11,6 @@ makedocs(
     format = Documenter.HTML(),
     build= "build",
     pages = ["JuliaDispatch: Analysis and Visualization Tools for Dispatch" => "index.md",
-            "Getting Started" => "installation.md",
             "Quick Start" => "quickstart.md",
             "Dispatch" => "dispatch.md",
             "Graphics" => "graphics.md",

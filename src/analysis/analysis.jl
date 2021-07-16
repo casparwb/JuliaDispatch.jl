@@ -1,5 +1,9 @@
 using FFTW, KernelDensity
 using JuliaDispatch.Utils: get_n_snapshots
+using JuliaDispatch.Select
+using StaticArrays
+
+""" WORK IN PROGRESS """
 
 function power_spectrum2d(data; kw...)
     #kw = Dict(kw)

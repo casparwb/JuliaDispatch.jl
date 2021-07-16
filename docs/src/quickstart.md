@@ -1,24 +1,26 @@
 # Quick-Start Guide
 
-```@meta
-CurrentModule = FooBar
-DocTestSetup  = quote
-    using MyPackage
-end
-```
 
 ## Installation and Setup
 
-Open your Julia REPL terminal and do
+!!! note "Multi-threading"
 
-```@repl
-]
-add "https://github.com/casparwb/JuliaDispatch.jl"
-add JLD
-using JLD, JuliaDispatch
+    `JuliaDispatch` uses multi-threading to speed up the process of parsing patches. It is recommend you start your Julia session with more than one thread. This can be done by typing `julia -threads N` when starting Julia, where `N` is the number of threads. You can also do this using the environment variable by setting `export JULIA_NUM_THREADS=N`. See [docs]https://docs.julialang.org/en/v1/manual/multi-threading/) for more information.
+
+Open your Julia REPL terminal and type ']' to enter the package manager, followed by
+
+```julia
+pkg> add "https://github.com/casparwb/JuliaDispatch.jl"
+pkg> add JLD
 ```
 
 `JLD` is a package used by `JuliaDispatch` to cache and read cached namelists. This needs to be in your workspace in order for it work, thus it is important that it is imported before `JuliaDispatch`.
+
+After having installed the packages, exit the package manager with backspace, and type
+
+```julia
+using JLD, JuliaDispatch
+```
 
 Note that things will be quite slow the first time you add and import a package, in addition to when you call a function. This is due to Julia's precompilation routine, and only happens the first time you call a function.
 
@@ -32,7 +34,7 @@ Importing `JuliaDispatch` does not include any functions into your workspace, bu
 
 After having imported `JuliaDispatch`, you can include the functionality of any of these modules by doing
 
-```@repl
+```julia
 using JuliaDispatch.MODULENAME
 ```
 
@@ -46,7 +48,7 @@ where `funcname` is the name of the function exported by the module `MODULENAME`
 
 To quickly get the documentation for any function, use the _help_ functionality of the REPL, which you can enter by typing `?`. You can then enter a function for which you want the documentation. For example
 
-```@repl
+```julia
 ?
 snapshot
 ```
@@ -76,7 +78,10 @@ end
 
 To see which quantities are present in the snapshot, you can print the `["idx"]["dict"]` of a snapshot. This returns a dictionary with keys equal to the different quantites, and values as integers corresponding to their offset in the data files. Any quantity that has a value `< 0` is present and can be extracted from the data files.
 
-```@example
+```@example 1
+using JuliaDispatch, JuliaDispatch.Dispatch
+data = "../../test/data/orz/data/" # hide
+snap = snapshot(0, data=data)
 for (k, v) in snap["idx"]["dict"]
     println(k, " ", v)
 end
@@ -86,10 +91,10 @@ end
 
 The `JuliaDispatch` package has support for parsing expressions. This means that when extracting patch data, instead of requesting a quantity in a specific data slot, a string containing an expression can be sent in instead. The expression parser will then attempt to parse and evaluate the expression and the return the result for the given patch. Any function that accepts the `iv` keyword argument supports this functionality. Variables in your workspace can be interpolated into the expression using the `$` construct. Example
 
-```@example
+```@example 1
 pi = 3.14 #
 patch = snap["patches"][1] # get the first patch
-velocity = snap["var"]("$pi*sqrt(ux^2 + uy^2 + uz^2)") # equal to "3.14*sqrt(ux^2 + uy^2 + uz^2)"
+velocity = snap["var"]("$pi*sqrt(ux^2 + uy^2 + uz^2)") # equivalent to "3.14*sqrt(ux^2 + uy^2 + uz^2)"
 ```
 
 ### Data Interpolation
@@ -100,7 +105,7 @@ One of the main features of the package is the ability to stitch together and in
 
 ### Loading a Snapshot
 
-```@example
+```@example 1
 using JuliaDispatch
 using JuliaDispatch.Dispatch
 data = "../test/data/orz/data" # hide
@@ -111,7 +116,7 @@ println("Number of patches = $(length(snap["patches"]))) # print the number of p
 
 ### Extracting Interpolated Data
 
-```@example
+```@example 1
 using JuliaDispatch.Buffers
 
 density_plane = unigrid_plane(snap, iv="d", z=0.1) # get the density in the xy-plane at z=0.1
@@ -123,7 +128,7 @@ density_volume_downscaled = amr_volume(snap, iv="d", dims=100)
 
 ### Plotting
 
-```@example
+```@example 1
 using JuliaDispatch.Graphics
 
 sliceplot(snap, iv="d", z=1.0) # plot a simple sliceplot of density at z=1.0

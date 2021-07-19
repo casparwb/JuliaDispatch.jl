@@ -16,7 +16,7 @@ The `sliceplot` function is the main function for plotting a quantity in a given
 
 By default, `sliceplot` assumes the snapshot data is not mesh-refined. If it is mesh-refined, make sure the `unigrid` keyword argument is set to `false`.
 
-It it possible to downscale the data to save memory by setting the `resample` keyword argument to `true`. This will rescale the data to a size defined by the `dims` keyword argument, which is by default set to `300`. `dims` can be either an integer, which rescales the data to have the same number of grid points in each dimension, or a 2D collection (`Tuple` or `Array`) with the number of grid points for each axis.  
+It it possible to rescale the data by setting the `dims` keyword argument to either an integer (which will scale the domain to `NxN`), or a length-2 collection, which scales the domain to `NxM`. 
 
 ```@docs
 JuliaDispatch.Graphics.sliceplot

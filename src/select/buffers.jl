@@ -26,7 +26,7 @@ function init_buffer(snap, iv, dims, num_dims)
     if typeof(dims) <: Int
         datashp = repeat([dims], num_dims) # same number of points in each dimension
     else
-        datashp = dims # or array of points in each dimension
+        datashp = reverse(dims) # or array of points in each dimension
     end
 
     buffer = Dict{Union{String, Int}, Array{Number, num_dims}}() # dict for storing quantities
@@ -55,13 +55,13 @@ end
 
 """
     amr_plane(snap::Dict; iv::Union{Int, String}, x::Float, y::Float, z::Float,
-             Log::Bool, dims::Union{Int, Tuple})
+             Log::Bool, dims::Union{Int, Tuple}, verbose=0)
 
 Return a 2D array containing interpolated data of quantity `iv` in a slice `x/y/z` from all patches in a given snapshot. If `dims` is an
 `Int` the resulting array will be of size `(dims, dims)`. If `dims` is a length-2 array, the array will have size `(dims...)`. 
 """
 function amr_plane(snap; iv = 0, x = nothing, y = nothing, z = nothing,
-                   Log = false, dims::Union{Int, Tuple}=100, all=false, span=nothing)
+                   Log = false, dims::Union{Int, Tuple}=100, all=false, span=nothing, verbose=0)
 
 
     xyz = [x, y, z]
@@ -92,59 +92,70 @@ function amr_plane(snap; iv = 0, x = nothing, y = nothing, z = nothing,
     axis1 = range(origin[1], origin[1]+Size[1], length=n1) # axis in plane axis 1
     axis2 = range(origin[2], origin[2]+Size[2], length=n2) # axis in plane axis 2
     if !isnothing(span)
-    # else
         axis1_span, axis2_span = span
 
-        snapshot_span = [(snap["cartesian"]["origin"][i], snap["cartesian"]["origin"][i] + snap["cartesian"]["size"][i]) for i = 1:3]
-        deleteat!(snapshot_span, ax)
-        
+        snapshot_span = ((axis1[1], axis1[end]), (axis2[1], axis2[end]))
+
         # check if given span extends beyond boundary and if corresponding axis is periodic
         axis1_over, axis1_under = false, false
-        if (snapshot_span[1][1] < axis1_span[1])  
+        if (axis1_span[1] < snapshot_span[1][1])  
             axis1_under = true
-        elseif (snapshot_span[1][2] > axis1_span[2])
+            verbose == 2 && println("given span extends under axis 1 boundary")
+        elseif (axis1_span[2] > snapshot_span[1][2])
             axis1_over = true
+            verbose == 2 && println("given span extends over axis 1 boundary")
+
         end
 
-        any(axis1_over, axis1_under) && iszero(snap["periodic"][ids[1]]) && throw(ArgumentError("axis $(ids[1]) is not periodic"))
+        any((axis1_over, axis1_under)) && iszero(snap["periodic"][dir1]) && throw(ArgumentError("axis $(dir1) is not periodic"))
 
         axis2_over, axis2_under = false, false
-        if (snapshot_span[1][1] < axis2_span[1])  
+        if (axis2_span[1] < snapshot_span[2][1])  
             axis2_under = true
-        elseif (snapshot_span[1][2] > axis2_span[2])
+            verbose == 2 && println("given span extends under axis 2 boundary")
+        elseif (axis2_span[2] > snapshot_span[2][2])
             axis2_over = true
+            verbose == 2 && println("given span extends over axis 2 boundary")
         end
 
-        any((axis1_over, axis1_under)) && iszero(snap["periodic"][ids[2]]) && throw(ArgumentError("axis $(ids[2]) is not periodic"))
+        any((axis2_over, axis2_under)) && iszero(snap["periodic"][dir2]) && throw(ArgumentError("axis $(dir2) is not periodic"))
 
-        sub_axis1 = range(axis1_span[1], axis1_span[2], length=n1) # axis in plane axis 1
-        sub_axis2 = range(axis2_span[1], axis2_span[2], length=n2) # axis in plane axis 2
+        sub_axis1 = range(axis1_span[1], axis1_span[2], length=n1) |> collect # axis in plane axis 1
+        sub_axis2 = range(axis2_span[1], axis2_span[2], length=n2) |> collect # axis in plane axis 2
+
         if any((axis1_under, axis1_over, axis2_under, axis2_over)) 
             
             if axis1_under
-                ids = findall(sub_axis1 .< axis1_span[1])
-                sub_axis1[ids] = range(axis1[end], stop=sub_axis1[ids[end]-1], length=length(ids))
+                ids = findall(sub_axis1 .< snapshot_span[1][1])
+                stopidx =  findall(axis1 .>= axis1[1] - sub_axis1[1])[1]
+                sub_axis1[ids] = range(axis1[end - stopidx], stop=axis1[end], length=length(ids))
             elseif axis1_over
-                ids = findall(axis1 .> axis1_span[2])
-                sub_axis1[ids] = range(axis1[1], stop=sub_axis1[ids[1]-1], length=length(ids))
+                ids = findall(sub_axis1 .> snapshot_span[1][2])
+                stopidx = findall(axis1 .<= sub_axis1[end] - axis1[end])[end]
+                sub_axis1[ids] = range(axis1[1], stop=axis1[stopidx], length=length(ids))
             end
 
             if axis2_under
-                ids = findall(sub_axis2 .< axis2_span[1])
+                ids = findall(sub_axis2 .< snapshot_span[2][1])
+                stopidx =  findall(axis2 .>= axis2[1] - sub_axis2[1])[1]
+                sub_axis2[ids] = range(axis2[end - stopidx], stop=axis2[end], length=length(ids))
             elseif axis2_over
-                ids = findall(sub_axis2 .> axis2_span[2])
+                ids = findall(sub_axis2 .> snapshot_span[2][2])
+                stopidx = findall(axis2 .<= sub_axis2[end] - axis2[end])[end]
+                sub_axis2[ids] = range(axis2[1], stop=axis2[stopidx], length=length(ids))
             end
 
         end
 
-
-        
+        axis1 = sub_axis1
+        axis2 = sub_axis2
     end
 
     interpx(itp, y, z) = itp(ax, y, z)
     interpy(itp, x, z) = itp(x, ax, z)
     interpz(itp, x, y) = itp(x, y, ax)
     interp = [interpx, interpy, interpz][axIdx] 
+
 
     for iv in keys(buffer)
         Base.Threads.@threads for patchID in eachindex(patches)
@@ -169,15 +180,15 @@ function amr_plane(snap; iv = 0, x = nothing, y = nothing, z = nothing,
 
             itp = LinearInterpolation((patch["x"], patch["y"], patch["z"]), box(patch, iv=iv, all=true), extrapolation_bc=Throw())
             for i2 ∈ axis2_indices, i1 ∈ axis1_indices
-                buffer[iv][i1, i2] = interp(itp, axis1[i1], axis2[i2]) # interpolate and insert into buffer
+                buffer[iv][i2, i1] = interp(itp, axis1[i1], axis2[i2]) # interpolate and insert into buffer
             end
         end
     end
 
     if length(keys(buffer)) == 1
-        return collect(values(buffer))[1]
+        return axis1, axis2, collect(values(buffer))[1]
     else
-        return buffer
+        return axis1, axis2, buffer
     end
 
 end
@@ -292,22 +303,21 @@ function unigrid_plane(snap::Dict; x = nothing, y = nothing, z = nothing,
     verbose >= 1 && println("data shape: $datashp") 
 
     if !isnothing(span)
-        
+        span = (span[1] .* 1.0, span[2] .* 1.0)
         snapshot_span = [(snap["cartesian"]["origin"][i], snap["cartesian"]["origin"][i] + snap["cartesian"]["size"][i]) for i = 1:3]
-        deleteat!(snapshot_span, ax)
-        
+
         # check if given span extends beyond boundary and if corresponding axis is periodic
         axis1_span, axis2_span = span
-        if ((snapshot_span[1][1] < axis1_span[1]) || (snapshot_span[1][2] > axis1_span[2]))    
-                iszero(snap["periodic"][ids[1]]) && throw(ArgumentError("axis $(ids[1]) is not periodic"))
+        if ((snapshot_span[ids[1]][1] > axis1_span[1]) || (snapshot_span[ids[1]][2] < axis1_span[2]))    
+            iszero(snap["periodic"][ids[1]]) && throw(ArgumentError("axis $(ids[1]) is not periodic"))
         end
 
-        if ((snapshot_span[2][1] < axis2_span[1]) || (snapshot_span[2][2] > axis2_span[2]))
+        if ((snapshot_span[ids[2]][1] > axis2_span[1]) || (snapshot_span[ids[2]][2] < axis2_span[2]))
             iszero(snap["periodic"][ids[2]]) && throw(ArgumentError("axis $(ids[2]) is not periodic"))
         end
 
         span = Array([span...])
-        span = tuple(insert!(span, ax, (xyz[ax]-1, xyz[ax]+1))...)
+        span = tuple(insert!(span, ax, snapshot_span[ax])...)
 
         max_ids = [1, 1]
         min_ids = [n1, n1]
@@ -337,7 +347,7 @@ function unigrid_plane(snap::Dict; x = nothing, y = nothing, z = nothing,
             im = plane(patch, x = x, y = y, z = z, iv = iv,
                              verbose=verbose, all=all)
             
-            buffer[iv][idxs[1]:idxs[2], idxs[3]:idxs[4]] = im
+            buffer[iv][idxs[3]:idxs[4], idxs[1]:idxs[2]] = im'
         end
     end
 

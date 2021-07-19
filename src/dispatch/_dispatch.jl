@@ -359,12 +359,13 @@ function _patch2(id, patch_dict, snap; memmap=1, verbose=0)
         llc = patch["position"] - patch["size"]/2.0
         urc = patch["position"] + patch["size"]/2.0
 
-        patch["extent"] = reshape([llc[2] urc[2] llc[3] urc[3]
-                                    llc[3] urc[3] llc[1] urc[1]
-                                    llc[1] urc[1] llc[2] urc[2]], 3, 4)
-        # patch["extent"] = SMatrix{3, 4, Float16}(llc[2], urc[2], llc[3], urc[3],
-        #                                         llc[3], urc[3], llc[1], urc[1],
-        #                                         llc[1], urc[1], llc[2], urc[2])
+        # patch["extent"] = reshape([llc[2] urc[2] llc[3] urc[3]
+        #                             llc[3] urc[3] llc[1] urc[1]
+        #                             llc[1] urc[1] llc[2] urc[2]], 3, 4)
+        patch["extent"] = SMatrix{3, 4}(llc[2], llc[3], llc[1],
+                                        urc[2], urc[3], urc[1],
+                                        llc[3], llc[1], llc[2],
+                                        urc[3], urc[1], urc[2])
         patch["llc_cart"] = llc
 
     end
@@ -851,7 +852,7 @@ function _var(patch, filed, snap; verbose = 0, copy = nothing)
 
         else
             verbose == 1 && println("unknown expression $iv, attempting to parse")
-            v = evaluate_expression(patch, iv, verbose=verbose)
+            v = evaluate_expression(patch, iv, all=all, verbose=verbose)
             return v
         end
 

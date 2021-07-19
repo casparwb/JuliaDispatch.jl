@@ -70,9 +70,9 @@ function patches_in(snap, span)
     # println(xspan, " ", yspan, " ", zspan)
     for p in snap["patches"]
         if ((xspan[1] <= p["extent"][3, 1] && xspan[2] >= p["extent"][3, 2]) &&
-           (yspan[1] <= p["extent"][1, 1] && yspan[2] >= p["extent"][1, 2]) &&
-           (zspan[1] <= p["extent"][2, 1] && zspan[2] >= p["extent"][2, 2]))
-           push!(patches, p)
+            (yspan[1] <= p["extent"][1, 1] && yspan[2] >= p["extent"][1, 2]) &&
+            (zspan[1] <= p["extent"][2, 1] && zspan[2] >= p["extent"][2, 2]))
+            push!(patches, p)
         end
     end
 

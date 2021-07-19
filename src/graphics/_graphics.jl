@@ -9,8 +9,7 @@ using Latexify, LaTeXStrings
 # using Unitful, Latexify, UnitfulRecipes, UnitfulLatexify
 WGLMakie.activate!()
 gr()
-
-default(:size, (1200, 800))
+default(:size, (800, 600))
 
 
 """ 
@@ -55,6 +54,7 @@ function plot_values_along(snap::Dict, pt=[0.5, 0.5, 0.5]; iv = 0, dir = 1, verb
         time = round(snap["time"], digits=2)
         title!(plt, "time = $time | pt = $pt")
     end
+    
     return plt
 end
 
@@ -120,11 +120,9 @@ supported by the `Plots.plot()` function, in addition to:
 - `grids::Bool`: whether to show patch grids. Default `false`.
 - `width::Tuple{Int, Int}`: width of the sub-domain axes. Default `nothing` (whole plane is plotted). 
 - `center::Tuple{Int, Int}`:  where to center the plot. Default `nothing` (center is not moved)
-- `resample::Union{Int, Tuple}`: whether to resample (upscale or downscale) slice. Default `nothing`. Can
-                                  be `Int` or `Tuple` of new dimensions.
 - `dims::Union{Tuple{Int, Int}, Int}`: size of interpolated slice if experiment uses adaptive mesh-refinement. 
                                        Can be either tuple indicating size in each dimension, or
-                                       an integer indicating same size for both dimensions. Default `300`.
+                                       an integer indicating same size for both dimensions. Default `nothing`.
 
 
 # Examples
@@ -145,10 +143,18 @@ function sliceplot(snap::Dict,
     end
     kv = Dict{Symbol, Any}(:verbose => 0, :iv => 0,
                            :grids => false,
-                           :width => nothing, :dims => 300,
-                           :center => nothing, :resample => false)
+                           :width => nothing, :dims => nothing,
+                           :center => nothing, :log =>  x -> x)
+
 
     _kw_extract(kw, kv)
+
+    # if !isnothing(kv[:figsize])
+    #     default(:size, (800, 600))
+    # else
+    #     default(:size, kv[:figsize])
+    # end
+    
     iv = kv[:iv]
     verbose = kv[:verbose]
 
@@ -158,40 +164,28 @@ function sliceplot(snap::Dict,
     axis = getindex(dirs, xyz .!= nothing)[1]   # axis at which we are slicing
     planeDirs = getindex(dirs, xyz .== nothing) # axes of plane
 
-    verbose > 1 && println("sliceplot through $(axis[2]) in plane $((planeDirs[1][2], planeDirs[2][2]))")
+    verbose > 1 && println("sliceplot at $(axis[2]) = $(axis[1]) in plane $((planeDirs[1][2], planeDirs[2][2]))")
 
     origin = copy(snap["cartesian"]["origin"])
     Size = copy(snap["cartesian"]["size"])
     deleteat!(origin, axis[3])
     deleteat!(Size, axis[3])
 
-    if unigrid && !kv[:resample]
-        data = unigrid_plane(snap, iv=iv, x=x, y=y, z=z)
-        verbose >= 1 && println("Unigrid data with shape $(size(data))")
-    else
-        data = amr_plane(snap, iv=iv, x=x, y=y, z=z, dims=kv[:dims])
-        verbose >= 1 && println("Mesh refined data with shape $(size(data))")
-    end
-
-    # plane axes
-    d1 = range(origin[1], origin[1]+Size[1], length=size(data, 1)) # dimension 1
-    d2 = range(origin[2], origin[2]+Size[2], length=size(data, 2)) # dimension 2
-
     # check if new width is given
     wflag = false
     if !isnothing(kv[:width])
-        verbose == 1 && println("new width: $width")
         width = kv[:width]
+        verbose == 1 && println("new width: $width")
         wflag = true
     else
-        width = Size
+        width = Size / 2
     end
 
     # check if new center is given
     cflag = false
     if !isnothing(kv[:center])
-        verbose == 1 && println("new center: $center")
         center = kv[:center]
+        verbose == 1 && println("new center: $center")
         cflag = true
     else
         center = origin .+ width
@@ -199,65 +193,28 @@ function sliceplot(snap::Dict,
 
     # realign data if new width or center is given
     if wflag || cflag
-
-        d1idx = planeDirs[1][3] # axis 1
-        d2idx = planeDirs[2][3] # axis 2
-
-        # new max- and min axis values  
-        d1ext = (center[1] - width[1], center[1] + width[1])
-        d2ext = (center[2] - width[2], center[2] + width[2])
-
-        # get the indices within the given sub-domain
-        idxs1 = findall(abs.(d1 .- center[1]) .<= width[1])
-        idxs2 = findall(abs.(d2 .- center[2]) .<= width[2])
-
-        # check if given width extends beyond non-periodic boundary
-        if (snap["periodic"][d1idx] |> iszero) || snap["periodic"][d2idx] |> iszero
-            if ((d1ext[1] < d1[1]) || (d1ext[2] > d1[end]) || (d2ext[1] < d2[1]) || (d2ext[2] > d2[end]))
-                throw(ErrorException("Given subdomain extends beyond non-periodic boundary"))
-            end
-        end
-
-        # check if periodic in dimension 1 and if new width extends beyond boundaries
-        if snap["periodic"][d1idx] |> isone
-            new_idxs = []
-            if (d1ext[1] < d1[1])
-                verbose == 2 && println("periodic boundaries in $(planeDirs[1][2])")
-                dist = diff(d1)[1]
-                n_ids = round(Int, abs(d1ext[1] - d1[1])/dist)
-                new_idxs1 = collect(length(d1)-n_ids:length(d1))
-                append!(new_idxs1, idxs1)
-            end
-
-            if (d1ext[2] > d1[end]) 
-                dist = diff(d1)[1]
-                n_ids = round(Int, abs(d1ext[2] - d1[end])/dist)
-                append!(new_idxs1, collect(1:n_ids))
-            end
-        end
-
-        # check if periodic in dimension 1 and if new width extends beyond boundaries
-        if snap["periodic"][d2idx] |> isone
-            new_idxs = []
-            if (d2ext[1] < d2[1])
-                verbose == 2 && println("periodic boundaries in dimension $(planeDirs[1][2])")
-                dist = diff(d2)[1]
-                n_ids = round(Int, abs(d2ext[1] - d2[1])/dist)
-                new_idxs2 = collect(length(d2)-n_ids:length(d2))
-                append!(new_idxs2, idxs2)
-            end
-
-            if (d2ext[2] > d2[end]) 
-                dist = diff(d2)[1]
-                n_ids = round(Int, abs(d2ext[2] - d2[end])/dist)
-                append!(new_idxs2, collect(1:n_ids))
-            end
-        end
-
-        d1 = d1[new_idxs1]
-        d2 = d2[new_idxs2]
-        data = data[new_idxs1, new_idxs2]
+        span = ((center[1] - width[1], center[1] + width[1]), (center[2] - width[2], center[2] + width[2]))
+    else
+        span = nothing
     end
+
+    
+    if unigrid && isnothing(kv[:dims])
+        data = unigrid_plane(snap, iv=iv, x=x, y=y, z=z, span=span, verbose=verbose)
+        verbose >= 1 && println("Unigrid data with shape $(size(data))")
+        d1 = range(center[1]-width[1], center[1]+width[1], length=size(data, 1)) # dimension 1
+        d2 = range(center[2]-width[2], center[2]+width[2], length=size(data, 2)) # dimension 2
+    else
+        # if isinteger(kv[:dims])
+        #     ratio = width[1]/width[2]
+        #     kv[:dims] = [dims, dims]
+        # end
+
+        d1, d2, data = amr_plane(snap, iv=iv, x=x, y=y, z=z, span=span, dims=kv[:dims], verbose=verbose)
+        verbose >= 1 && println("Mesh refined data with shape $(size(data))")
+    end
+
+    data = @. kv[:log](data)
 
     # set colorbar title if not given as a keyword arguments
     if !haskey(kw, :cbar_title)
@@ -275,6 +232,14 @@ function sliceplot(snap::Dict,
     xticks = (xticks, ceil.(d1[xticks], digits=1)) 
     yticks = range(1, stop=length(d2), step=round(Int, length(d2)/8))
     yticks = (yticks, ceil.(d2[yticks], digits=1))
+
+    if !haskey(kw, :aspect_ratio)
+        try
+            kw[:aspect_ratio] = size(data, 2)/size(data, 1)
+        catch
+            kw[:aspect_ratio] = 1.0
+        end
+    end
     
     hm = plot(data, xticks=xticks, yticks=yticks, cbar_title=cbar_title; kw...)
 

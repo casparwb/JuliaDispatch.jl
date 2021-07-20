@@ -221,7 +221,6 @@ function patches_along(snap, point=[0.5, 0.5, 0.5]; dir = 1, verbose=0)
 
     pt = copy(point)
 
-
     p = patch_at(patches, pt)
 
     if !isnothing(p)
@@ -295,7 +294,6 @@ function corner_indices(snap, patch; dir=1)
     i = [Int(round(k + 0.5)) for k in i]
     n = patch["n"][:]
 
-
     if dir >= 1 && dir < 4
         deleteat!(i, dir)
         deleteat!(n, dir)
@@ -305,85 +303,26 @@ function corner_indices(snap, patch; dir=1)
     end
 end
 
-# """
-#     plane(patch::Dict; x::Number=nothing, y::Number=nothing, z::Number=nothing,
-#           iv::Union{String, Int}=0, all::Bool=false, verbose::Int=0)
+"""
+    corner_indices(snap, patch)
 
-# Return patch data of quantity `iv` at a slice `x/y/z`.
-
-# #Examples
-# ```
-# julia> density_plane = plane(patch, z=-1.0, iv="d")
-# ```
-# """
-# function plane(patch; x = nothing, y = nothing, z = nothing, iv = 0,
-#                     verbose = 0, all=false)
+Get the corner indices of a given patch.
+"""
+function corner_indices(snap, patch)
 
 
+    i = (patch["position"] .- patch["size"]/2 .- snap["cartesian"]["origin"])./patch["ds"]
+    i = [Int(round(k + 0.5)) for k in i]
+    n = patch["n"][:]
 
-#     if patch["guard_zones"]# && !all
-#         #li = patch["li"]  # lower inner
-#         #ui = patch["ui"]  # upper inner
-#         li = ones(Int, 3)
-#         ui = patch["n"]
-#     else #all || !patch["guard_zones"]
-#         li = ones(Int, 3) # using Static??
-#         ui = patch["n"]
-#     end
-
-#     #@assert !all(isnothing.((x, y, z))) "plane: must give one x, y, or z-value."
-
-#     variv = patch["var"](iv, verbose=verbose, all=all)
-#     if !isnothing(x)
-#         p = (x - patch["x"][1])/patch["ds"][1]
-#         i = round(Int, p)
-#         i = min(i, ui[1]-1)
-#         p -= i
-
-#         # f = variv[i, li[2]:ui[2], li[3]:ui[3]]*(1.0 - p) +
-#         #     variv[i+1, li[2]:ui[2], li[3]:ui[3]]*p
-
-#         f = variv[i, :, :]*(1.0 - p) +
-#             variv[i+1, :, :]*p
-
-#     elseif !isnothing(y)
-#         p = (y - patch["y"][1])/patch["ds"][2]
-#         i = round(Int, p)
-#         i = min(i, ui[2]-1)
-#         p -= i
-#         # f = transpose(variv[li[1]:ui[1], i  , li[3]:ui[3]]*(1.0-p) +
-#         #               variv[li[1]:ui[1], i+1, li[3]:ui[3]]*p)
-#         # f = transpose(variv[:, i  , :]*(1.0-p) +
-#         #               variv[:, i+1, :]*p)
-#         f = (variv[:, i  , :]*(1.0-p) +
-#              variv[:, i+1, :]*p)
-
-#     elseif !isnothing(z)
-#         p = (z - patch["z"][1])/patch["ds"][3]
-#         i = round(Int, p)
-#         i = min(i, ui[3]-1)
-#         p = p - i
-#         # if i == 0
-#         #     f = variv[li[1]:ui[1], li[2]:ui[2], end]*(1.0 - p) +
-#         #         variv[li[1]:ui[1], li[2]:ui[2], i+1]*p
-#         # else
-#         #     f = variv[li[1]:ui[1], li[2]:ui[2], i]*(1.0 - p) +
-#         #         variv[li[1]:ui[1], li[2]:ui[2], i+1]*p
-#         # end
-#         if i == 0
-#             f = variv[:, :, 1]*(1.0 - p) +
-#                 variv[:, :, 2]*p
-#         else
-#             f = variv[:, :, i]*(1.0 - p) +
-#                 variv[:, :, i+1]*p
-#         end
-#     end
-
-#     verbose > 1 && println("plane: $i, p = $i $p")
-
-#     return f
-
-# end
+    # if dir >= 1 && dir < 4
+    #     deleteat!(i, dir)
+    #     deleteat!(n, dir)
+    #     return i[1]+1, i[1]+n[1], i[2]+1, i[2]+n[2]
+    # else
+    # end
+    return i[1]+1, i[1]+n[1], i[2]+1, i[2]+n[2], i[3]+1, i[3]+n[3]
+end
 
 
 """

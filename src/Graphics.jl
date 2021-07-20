@@ -3,6 +3,6 @@ module Graphics
 
     include("graphics/_graphics.jl")
 
-    export plot_values_along, sliceplot, histogram_along, anim_plane, anim_pane, volume, streamplot_
+    export plot_values_along, sliceplot, histogram_along, anim_plane, anim_pane, volume, streamplot_, anim_pane2
 
 end # module

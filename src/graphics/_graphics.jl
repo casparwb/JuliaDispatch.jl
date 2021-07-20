@@ -141,19 +141,17 @@ function sliceplot(snap::Dict,
     if !haskey(kw, :linetype) 
         kw[:linetype] = :heatmap 
     end
+
+
     kv = Dict{Symbol, Any}(:verbose => 0, :iv => 0,
                            :grids => false,
                            :width => nothing, :dims => nothing,
-                           :center => nothing, :log =>  x -> x)
+                           :center => nothing, :log =>  x -> x,
+                           :span => nothing)
 
 
     _kw_extract(kw, kv)
 
-    # if !isnothing(kv[:figsize])
-    #     default(:size, (800, 600))
-    # else
-    #     default(:size, kv[:figsize])
-    # end
     
     iv = kv[:iv]
     verbose = kv[:verbose]
@@ -163,29 +161,29 @@ function sliceplot(snap::Dict,
     dirs = [(x, "x", 1), (y, "y", 2), (z, "z", 3)]
     axis = getindex(dirs, xyz .!= nothing)[1]   # axis at which we are slicing
     planeDirs = getindex(dirs, xyz .== nothing) # axes of plane
-
-    verbose > 1 && println("sliceplot at $(axis[2]) = $(axis[1]) in plane $((planeDirs[1][2], planeDirs[2][2]))")
-
+    ax1idx, ax2idx = planeDirs[1][3], planeDirs[2][3]
+    verbose == 1 && @info ("Sliceplot at $(axis[2]) = $(axis[1]) in plane $((planeDirs[1][2], planeDirs[2][2]))")
+    
     origin = copy(snap["cartesian"]["origin"])
     Size = copy(snap["cartesian"]["size"])
     deleteat!(origin, axis[3])
-    deleteat!(Size, axis[3])
+    # # deleteat!(Size, axis[3])
 
     # check if new width is given
     wflag = false
     if !isnothing(kv[:width])
         width = kv[:width]
-        verbose == 1 && println("new width: $width")
+        verbose == 1 && println("New width: $width")
         wflag = true
     else
-        width = Size / 2
+        width = [Size[ax1idx], Size[ax2idx]] / 2
     end
 
     # check if new center is given
     cflag = false
     if !isnothing(kv[:center])
         center = kv[:center]
-        verbose == 1 && println("new center: $center")
+        verbose == 1 && println("New center: $center")
         cflag = true
     else
         center = origin .+ width
@@ -194,24 +192,22 @@ function sliceplot(snap::Dict,
     # realign data if new width or center is given
     if wflag || cflag
         span = ((center[1] - width[1], center[1] + width[1]), (center[2] - width[2], center[2] + width[2]))
-    else
+    elseif !isnothing(kv[:span]) 
+        span = kv[:span]
+    else 
         span = nothing
     end
 
     
     if unigrid && isnothing(kv[:dims])
-        data = unigrid_plane(snap, iv=iv, x=x, y=y, z=z, span=span, verbose=verbose)
-        verbose >= 1 && println("Unigrid data with shape $(size(data))")
-        d1 = range(center[1]-width[1], center[1]+width[1], length=size(data, 1)) # dimension 1
-        d2 = range(center[2]-width[2], center[2]+width[2], length=size(data, 2)) # dimension 2
+        data = unigrid_volume(snap, iv=iv, span=span, verbose=verbose)
+        verbose > 1 && @info ("Unigrid data with shape $(size(data))")
+        d1 = range(center[1]-width[1], center[1]+width[1], length=size(data, 2)) # dimension 1
+        d2 = range(center[2]-width[2], center[2]+width[2], length=size(data, 1)) # dimension 2
     else
-        # if isinteger(kv[:dims])
-        #     ratio = width[1]/width[2]
-        #     kv[:dims] = [dims, dims]
-        # end
 
-        d1, d2, data = amr_plane(snap, iv=iv, x=x, y=y, z=z, span=span, dims=kv[:dims], verbose=verbose)
-        verbose >= 1 && println("Mesh refined data with shape $(size(data))")
+        d1, d2, data = amr_volume(snap, iv=iv, span=span, dims=kv[:dims], verbose=verbose)
+        verbose > 1 && @info ("Mesh refined data with shape $(size(data))")
     end
 
     data = @. kv[:log](data)
@@ -229,9 +225,9 @@ function sliceplot(snap::Dict,
 
     # set axis ticks (position, label)
     xticks = range(1, stop=length(d1), step=round(Int, length(d1)/8))
-    xticks = (xticks, ceil.(d1[xticks], digits=1)) 
+    xticks = (xticks |> collect, ceil.(d1[xticks], digits=1)) 
     yticks = range(1, stop=length(d2), step=round(Int, length(d2)/8))
-    yticks = (yticks, ceil.(d2[yticks], digits=1))
+    yticks = (yticks |> collect, ceil.(d2[yticks], digits=1))
 
     if !haskey(kw, :aspect_ratio)
         try
@@ -247,16 +243,25 @@ function sliceplot(snap::Dict,
     if kv[:grids]
         i = axis[3]
         patches = patches_in(snap, x=x, y=y, z=z)
+
         for p in patches
+            xidx = ax1idx
+            yidx = ax2idx
+
             e = p["extent"][i,:]
 
-            x = [e[1], e[1], e[2], e[2], e[1]]
-            y = [e[3], e[4], e[4], e[3], e[3]]
+            x = abs.([e[1], e[2], e[2], e[2], e[2], e[1], e[1], e[1]] ./ Size[xidx] .* size(data, 2))
+            y = abs.([e[3], e[3], e[3], e[4], e[4], e[4], e[4], e[3]] ./ Size[yidx] .* size(data, 1))
 
-            plot!(hm, x, y, color=:gray, label=false)
+            if i !== 2
+                plot!(hm, x, y, color=:gray, label=false)
+            else
+                plot!(hm, y, x, color=:gray, label=false)
+            end
         end
     end
 
+    
     # set labels and title if not given as a keyword argument
     if !haskey(kw, :xlabel)
         xlabel = planeDirs[1][2]
@@ -298,7 +303,7 @@ julia> anim_pane(snap, ax=3, iv="d", nframes=100, start=0.0, stop=-10.0, savepat
 ```
 """
 function anim_pane(snap; ax=1, nframes=10, unigrid=true, iv=0, reverse=false,
-                   start=nothing, stop=nothing, verbose=0, savepath = nothing, kw...)
+                   start=nothing, stop=nothing, span=nothing, verbose=0, savepath = nothing, time=5, kw...)
 
     if isnothing(savepath)
         throw(ArgumentError("savepath can not be nothing. Aborting."))
@@ -326,99 +331,209 @@ function anim_pane(snap; ax=1, nframes=10, unigrid=true, iv=0, reverse=false,
     
     verbose == 1 && println("panning through $ax from $(axvals[1]) to $(axvals[end])")
 
+    data = amr_volume(snap, iv=iv, dims=50)
+    vmin, vmax = minimum(data), maximum(data)
+    data = nothing
+
     if ax == 1
-        anim_pane_x(snap, axvals, iv = iv, nframes = nframes, unigrid = unigrid, savepath=savepath; kw...)
+        anim_pane_x(snap, axvals, iv = iv, nframes = nframes, unigrid = unigrid, savepath=savepath, time=time, span=span, clims=(vmin, vmax); kw...)
     elseif ax == 2
-        anim_pane_y(snap, axvals, iv = iv, nframes = nframes, unigrid = unigrid, savepath=savepath; kw...)
+        anim_pane_y(snap, axvals, iv = iv, nframes = nframes, unigrid = unigrid, savepath=savepath, time=time, span=span, clims=(vmin, vmax); kw...)
     else
-        anim_pane_z(snap, axvals, iv = iv, nframes = nframes, unigrid = unigrid, savepath=savepath; kw...)
+        anim_pane_z(snap, axvals, iv = iv, nframes = nframes, unigrid = unigrid, savepath=savepath, time=time, span=span, clims=(vmin, vmax); kw...)
     end
 end
 
 """ Wrapper for pane animation in x-direction """
 function anim_pane_x(snap, x; iv = 0, nframes = 10, verbose = 0, 
-                    unigrid=true, savepath=nothing, kw...)
+                    unigrid=true, savepath=nothing, time=5, clims=nothing, span=nothing, kw...)
 
     anim = @animate for i = ProgressBar(1:length(x))
         sliceplot(snap, iv=iv, unigrid=unigrid, x=x[i], title = "x = $(round(x[i], digits=2))",
-                  verbose=verbose, cbar=false; kw...)
+                  verbose=verbose, clims=clims, span=span; kw...)
     end
 
-    gif(anim, savepath)
+    gif(anim, savepath, fps=nframes/time)
 
 end
 
 """ Wrapper for pane animation in y-direction """
 function anim_pane_y(snap, y; iv = 0, nframes = 10, verbose = 0, 
-                     unigrid=true, savepath=nothing, kw...)
+                     unigrid=true, savepath=nothing, time=5, clims=nothing, span=nothing, kw...)
 
     anim = @animate for i = ProgressBar(1:length(y))
         sliceplot(snap, iv=iv, unigrid=unigrid, y=y[i], title = "y = $(round(y[i], digits=2))",
-                  verbose=verbose, cbar=false; kw...)
+                  verbose=verbose, clims=clims, span=span; kw...)
     end
 
-    gif(anim, savepath)
+    gif(anim, savepath, fps=nframes/time)
                 
 end
 
 """ Wrapper for pane animation in z-direction """
 function anim_pane_z(snap, z; iv = 0, nframes = 10, verbose = 0,
-                     unigrid=true, savepath=nothing, kw...)
+                     unigrid=true, savepath=nothing, time=5, clims=nothing, span=nothing, kw...)
 
     anim = @animate for i = ProgressBar(1:length(z))
         sliceplot(snap, iv=iv, unigrid=unigrid, z=z[i], title = "z = $(round(z[i], digits=2))",
-                  verbose=verbose, cbar=false; kw...)
+                  verbose=verbose, clims=clims, span=span; kw...)
     end
 
-    gif(anim, savepath)
+    gif(anim, savepath, fps=nframes/time)
                 
 end
 
-function volume(snap::Dict; iv = 0, unigrid=true, kw...)
-    """ Plot a 3D volume of the given quantity iv """
 
-    kw = Dict(kw)
+
+function volume(snap::Dict; iv = 0, unigrid=true, kw...)
+    kw = Dict{Symbol, Any}(kw)
+    if !haskey(kw, :linetype) 
+        kw[:linetype] = :heatmap 
+    end
+
+
     kv = Dict{Symbol, Any}(:verbose => 0, :iv => 0,
-                           :grids => false, :cmap => nothing,
-                           :title => nothing, :label => nothing,
-                           :style => :heatmap, :fill => true,
-                           :width => (1.0, 1.0),
-                           :xlabel => nothing, :ylabel => nothing,
-                           :transpose => false)
+                           :grids => false,
+                           :width => nothing, :dims => nothing,
+                           :center => nothing, :log =>  x -> x,
+                           :span => nothing)
+
 
     _kw_extract(kw, kv)
 
-    origin = snap["cartesian"]["origin"]
-    size_ = snap["cartesian"]["size"]
+    
+    iv = kv[:iv]
+    verbose = kv[:verbose]
 
-    start = origin .- size_/2
-    stop = origin .+ size_/2
+    # get the axis where to slice and the resulting plane
+    xyz = [x, y, z]
+    dirs = [(x, "x", 1), (y, "y", 2), (z, "z", 3)]
+    axis = getindex(dirs, xyz .!= nothing)[1]   # axis at which we are slicing
+    planeDirs = getindex(dirs, xyz .== nothing) # axes of plane
+    ax1idx, ax2idx = planeDirs[1][3], planeDirs[2][3]
+    verbose == 1 && @info ("Sliceplot at $(axis[2]) = $(axis[1]) in plane $((planeDirs[1][2], planeDirs[2][2]))")
+    
+    origin = copy(snap["cartesian"]["origin"])
+    Size = copy(snap["cartesian"]["size"])
+    deleteat!(origin, axis[3])
+    # # deleteat!(Size, axis[3])
 
-    if unigrid
-        data = unigrid_volume(snap, iv=iv)
+    # check if new width is given
+    wflag = false
+    if !isnothing(kv[:width])
+        width = kv[:width]
+        verbose == 1 && println("New width: $width")
+        wflag = true
     else
-        data = amr_volume(snap, iv=iv)
+        width = [Size[ax1idx], Size[ax2idx]] / 2
+    end
+
+    # check if new center is given
+    cflag = false
+    if !isnothing(kv[:center])
+        center = kv[:center]
+        verbose == 1 && println("New center: $center")
+        cflag = true
+    else
+        center = origin .+ width
+    end
+
+    # realign data if new width or center is given
+    if wflag || cflag
+        span = ((center[1] - width[1], center[1] + width[1]), (center[2] - width[2], center[2] + width[2]))
+    elseif !isnothing(kv[:span]) 
+        span = kv[:span]
+    else 
+        span = nothing
+    end
+
+    
+    if unigrid && isnothing(kv[:dims])
+        data = unigrid_volume(snap, iv=iv, x=x, y=y, z=z, span=span, verbose=verbose)
+        verbose > 1 && @info ("Unigrid data with shape $(size(data))")
+        d1 = range(center[1]-width[1], center[1]+width[1], length=size(data, 2)) # dimension 1
+        d2 = range(center[2]-width[2], center[2]+width[2], length=size(data, 1)) # dimension 2
+    else
+
+        d1, d2, data = amr_plane(snap, iv=iv, x=x, y=y, z=z, span=span, dims=kv[:dims], verbose=verbose)
+        verbose > 1 && @info ("Mesh refined data with shape $(size(data))")
+    end
+
+    data = @. kv[:log](data)
+
+    # set colorbar title if not given as a keyword arguments
+    if !haskey(kw, :cbar_title)
+        try
+            cbar_title = latexify("$iv") # latexify only works with specific math equations
+        catch
+            cbar_title = L"%$iv" # produces a latexstring, which should work regardless
+        end
+    else
+        cbar_title = L"%$kw[:cbar_title]"
+    end
+
+    # set axis ticks (position, label)
+    xticks = range(1, stop=length(d1), step=round(Int, length(d1)/8))
+    xticks = (xticks |> collect, ceil.(d1[xticks], digits=1)) 
+    yticks = range(1, stop=length(d2), step=round(Int, length(d2)/8))
+    yticks = (yticks |> collect, ceil.(d2[yticks], digits=1))
+
+    if !haskey(kw, :aspect_ratio)
+        try
+            kw[:aspect_ratio] = size(data, 2)/size(data, 1)
+        catch
+            kw[:aspect_ratio] = 1.0
+        end
     end
     
-    nx, ny, nz = size(data)
+    hm = plot(data, xticks=xticks, yticks=yticks, cbar_title=cbar_title; kw...)
 
-    x = range(start[1], stop[1], length=nx)
-    y = range(start[2], stop[2], length=ny)
-    z = range(start[3], stop[3], length=nz)
+    # add grids
+    if kv[:grids]
+        i = axis[3]
+        patches = patches_in(snap, x=x, y=y, z=z)
+
+        for p in patches
+            xidx = ax1idx
+            yidx = ax2idx
+
+            e = p["extent"][i,:]
+
+            x = abs.([e[1], e[2], e[2], e[2], e[2], e[1], e[1], e[1]] ./ Size[xidx] .* size(data, 2))
+            y = abs.([e[3], e[3], e[3], e[4], e[4], e[4], e[4], e[3]] ./ Size[yidx] .* size(data, 1))
+
+            if i !== 2
+                plot!(hm, x, y, color=:gray, label=false)
+            else
+                plot!(hm, y, x, color=:gray, label=false)
+            end
+        end
+    end
+
+    
+    # set labels and title if not given as a keyword argument
+    if !haskey(kw, :xlabel)
+        xlabel = planeDirs[1][2]
+        xlabel!(hm, xlabel)
+    end
+
+    if !haskey(kw, :ylabel)
+        ylabel = planeDirs[2][2]
+        ylabel!(hm, ylabel)
+    end
+
+    if !haskey(kw, :title)
+        pos = (axis[2], axis[1])
+        time = round(snap["time"], digits=2)
+        try
+            title!(latexify("$(pos[1]) = $(pos[2]), t = $time"))
+        catch
+            title!(L"$(pos[1]) = $(pos[2]), t = $time")
+        end
+    end
 
 
-    # kv[:cmap] !== nothing ? cmap = kv[:cmap] : cmap = :viridis
-    scene = WGLMakie.volume(x, y, z, data)
-    # kv[:title] !== nothing ? Makie.title(scene, kv[:title]) : nothing
-
-    # if kv[:grids]
-    #     for patch in snap["patches"]
-    #         e = patch["extent"]
-    #     end
-    # end
-    WGLMakie.save("volume.png", scene)
-    #scene
-end
+    return hm
 
 """
     anim_plane(;data="../data", run="", x = nothing, y = nothing, z = nothing, iv=0, 

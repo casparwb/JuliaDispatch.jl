@@ -13,6 +13,42 @@ julia> snap["patches"][1]["var"]("gamma*π/4*sqrt(bx^2 + by^2 + bz^2"))
 """
 function evaluate_expression(patch, expr; all=false, verbose = 0)
 
+    # check if given expression has already been parsed and cached
+    # if not, parse and cache
+    if haskey(patch, "expr")
+        cached_expr = get(patch["expr"], expr, nothing)
+        if !isnothing(cached_expr)
+            parsed = Meta.parse(cached_expr)
+        else
+            built_expression = build_expression(patch, expr, all)
+            patch["expr"][expr] = built_expression
+            parsed = Meta.parse(built_expression)
+        end
+    else
+        patch["expr"] = Dict{String, String}()
+        built_expression = build_expression(patch, expr, all)
+        patch["expr"][expr] = built_expression
+        parsed = Meta.parse(built_expression)
+    end
+
+    # parse and evaluate
+    verbose >= 1 && println("evaluating expression $parsed")
+    try
+        # eval() looks for variables in global scope, so we have to force the
+        # patch argument to be in its local scope by using the `let` construct
+        return @eval begin
+            let patch = $patch 
+                $parsed
+            end
+        end
+    catch e
+        println("Unable to parse expression")
+        throw(e)
+    end
+
+end
+
+function build_expression(patch, expr, all)
     expr = replace(expr, "sqrt" => "√")
 
     if occursin("log10", expr)
@@ -26,10 +62,9 @@ function evaluate_expression(patch, expr; all=false, verbose = 0)
     if occursin("log", expr)
         expr = replace(expr, "log" => "ln")
     end
-    ops = "+-*/^"
 
-    methods = ["cos", "sin", "tan", "√", "abs", "atan", "ln", "lgg", "lg"]
-    bools = ["true", "false"]
+    ops = "+-*/^"
+    methods = ("cos", "sin", "tan", "√", "abs", "atan", "ln", "lgg", "lg")
 
     """ 
     if there are any mathematical expressions inside the expression, 
@@ -62,18 +97,7 @@ function evaluate_expression(patch, expr; all=false, verbose = 0)
         expr = replace(expr, """patch["var"]("$var")""" => """patch["var"]("$var", all=$all)""")
     end
 
-
-    where_bools = [findall(bool, expr) for bool in bools]
-    if !isempty(where_bools)
-        for ids in where_bools
-            isempty(ids) && continue
-            for id in ids
-                append!(idxs, id)
-            end
-        end
-    end
-
-    # vectorize the operations and mathemetical expressions
+    # vectorize the operations and mathematical expressions
     for op in ops
         if occursin(op, expr)
             expr = replace(expr, op => " .$op ")
@@ -94,20 +118,5 @@ function evaluate_expression(patch, expr; all=false, verbose = 0)
 
     expr = replace(expr, "√" => "sqrt") # sqrt works and √ doesn't for some reason
 
-    # parse and evaluate
-    verbose >= 1 && println("evaluating expression $expr")
-    parsed = Meta.parse(expr)
-    try
-        # eval() looks for variables in global scope, so we have to force the
-        # patch argument to be in its local scope by using the `let` construct
-        return @eval begin
-            let patch = $patch 
-                $parsed
-            end
-        end
-    catch e
-        println("Unable to parse expression")
-        throw(e)
-    end
-
+    return expr
 end

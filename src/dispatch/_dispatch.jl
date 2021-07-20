@@ -1,7 +1,7 @@
 using PyCall, Printf, Mmap, StaticArrays, JLD, Unitful, ProgressBars
 using FStrings
 
-using JuliaDispatch.Utils
+using JuliaDispatch.Utils, JuliaDispatch.Select
 
 include("_aux2.jl")
 include("_dispatch_grid.jl")
@@ -449,6 +449,7 @@ function _patch2(id, patch_dict, snap; memmap=1, verbose=0)
     end
     patch["all_keys"] = all
 
+    patch["corner_indices"] = corner_indices(snap, patch)
     return patch
 end # function
 

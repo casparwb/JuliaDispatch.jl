@@ -26,7 +26,11 @@ function init_buffer(snap, iv, dims, num_dims)
     if typeof(dims) <: Int
         datashp = repeat([dims], num_dims) # same number of points in each dimension
     else
-        datashp = reverse(dims) # or array of points in each dimension
+        if num_dims == 2
+            datashp = reverse(dims) # or array of points in each dimension
+        else
+            datashp = [dims[2], dims[1], dims[3]]
+        end
     end
 
     buffer = Dict{Union{String, Int}, Array{Number, num_dims}}() # dict for storing quantities
@@ -220,14 +224,31 @@ function amr_volume(snap; iv::Union{Int, Array, String} = 0, all = false,
         x = range(origin[1], origin[1]+Size[1], length=nx)
         y = range(origin[2], origin[2]+Size[2], length=ny)
         z = range(origin[3], origin[3]+Size[3], length=nz)
-        patches = patches_in(snap, span)
-        # patches = snap["patches"]
+        patches = snap["patches"]
     else
+        span = (span[1] .* 1.0, span[2] .* 1.0, span[3] .* 1.0) # convert to float
+        snapshot_span = [(origin[i], origin[i] + Size[i]) for i = 1:3]
+
+        # check if given span extends beyond boundary and if corresponding axis is periodic
+        x_span, y_span, z_span = span
+        if ((snapshot_span[1][1] > x_span[1]) || (snapshot_span[1][2] < x_span[2]))    
+            iszero(snap["periodic"][1]) && throw(ArgumentError("axis x is not periodic"))
+        end
+
+        if ((snapshot_span[2][1] > y_span[1]) || (snapshot_span[2][2] < y_span[2]))
+            iszero(snap["periodic"][2]) && throw(ArgumentError("axis y is not periodic"))
+        end
+
+        if ((snapshot_span[3][1] > z_span[1]) || (snapshot_span[3][2] < z_span[2]))
+            iszero(snap["periodic"][3]) && throw(ArgumentError("axis z is not periodic"))
+        end
+        
         x_span, y_span, z_span = span
         x = range(x_span[1], x_span[2], length=nx)
         y = range(y_span[1], y_span[2], length=ny)
         z = range(z_span[1], z_span[2], length=nz)
-        patches = snap["patches"]
+        # patches = snap["patches"]
+        patches = patches_in(snap, span)
     end
 
     for iv in keys(buffer)
@@ -252,7 +273,10 @@ function amr_volume(snap; iv::Union{Int, Array, String} = 0, all = false,
             y_ids = findall(y_extent[1] .< y .< y_extent[end])
             z_ids = findall(z_extent[1] .< z .< z_extent[end])
 
-            itp = LinearInterpolation((patch["x"], patch["y"], patch["z"]), box(patch, iv=iv, verbose=verbose, all=true), extrapolation_bc=Throw())
+            itp = LinearInterpolation((patch["x"], patch["y"], patch["z"]), 
+                                       box(patch, iv=iv, verbose=verbose, all=true), 
+                                       extrapolation_bc=Throw())
+
             @inbounds for iz in z_ids, iy in y_ids, ix in x_ids
                 buffer[iv][ix, iy, iz] = itp(x[ix], y[iy], z[iz])
             end
@@ -286,7 +310,7 @@ function unigrid_plane(snap::Dict; x = nothing, y = nothing, z = nothing,
       throw(ErrorException(" no patches found in [$x, $y, $z]"))
     end
 
-    verbose > 0 && println("number of patches: $(length(patches))")
+    verbose == 2 && println("number of patches: $(length(patches))")
 
     n1, n2 = 0, 0
     patchDict = Dict{Int, Tuple{NTuple{4,Int64}, Dict}}()
@@ -300,7 +324,7 @@ function unigrid_plane(snap::Dict; x = nothing, y = nothing, z = nothing,
     end
     datashp = [n1, n2]
 
-    verbose >= 1 && println("data shape: $datashp") 
+    verbose == 2 && println("data shape: $datashp") 
 
     if !isnothing(span)
         span = (span[1] .* 1.0, span[2] .* 1.0)
@@ -344,15 +368,15 @@ function unigrid_plane(snap::Dict; x = nothing, y = nothing, z = nothing,
         patchkeys = keys(patchDict) |> collect
         Base.Threads.@threads for key in patchkeys
             idxs, patch = patchDict[key]
-            im = plane(patch, x = x, y = y, z = z, iv = iv,
-                             verbose=verbose, all=all)
+            im = plane(patch, x = x, y = y, z = z, iv = iv, all=all)
             
             buffer[iv][idxs[3]:idxs[4], idxs[1]:idxs[2]] = im'
         end
+        buffer[iv] = buffer[min_ids[2]:max_ids[2], min_ids[1]:max_ids[1]]
     end
 
     if length(keys(buffer)) == 1
-        return collect(values(buffer))[1][min_ids[2]:max_ids[2], min_ids[1]:max_ids[1]]
+        return collect(values(buffer))[1]
     else
         return buffer
     end
@@ -376,24 +400,63 @@ number of cells.
           values as the 2d-buffers.
     - `all::Bool`, whether to include guard zones (if available)
 """
-function unigrid_volume(snap; iv = 0,  all=false, verbose=0)
+function unigrid_volume(snap; iv = 0, span=nothing, all=false, verbose=0)
 
     dims = snap["cartesian"]["dims"]
     patches = snap["patches"]
 
+    
     patchDict = Dict{Int, Tuple{NTuple{6, Int64}, Dict}}()
 
     nx, ny, nz = 0, 0, 0
     for p in patches
-        idxs_xy = corner_indices(snap, p, dir=3)
-        idxs_z = corner_indices(snap, p, dir=1)[3:4]
+        idxs = corner_indices(snap, p)
 
-        idxs_xy[2] > nx ? nx = idxs_xy[2] : nothing
-        idxs_xy[4] > ny ? ny = idxs_xy[4] : nothing
-        idxs_z[2]  > nz ? nz = idxs_z[2]  : nothing
+        nx = max(idxs[2], nx)
+        ny = max(idxs[4], ny)
+        nz = max(idxs[6], nz)
 
-        idxs = tuple(idxs_xy..., idxs_z...)
+        # idxs = tuple(idxs_xy..., idxs_z...)
         patchDict[p["id"]] = (idxs, p)
+    end
+
+    if !isnothing(span)
+        span = (span[1] .* 1.0, span[2] .* 1.0, span[3] .* 1.0) # convert to float
+        snapshot_span = [(snap["cartesian"]["origin"][i], snap["cartesian"]["origin"][i] + snap["cartesian"]["size"][i]) for i = 1:3]
+
+        # check if given span extends beyond boundary and if corresponding axis is periodic
+        x_span, y_span, z_span = span
+        if ((snapshot_span[1][1] > x_span[1]) || (snapshot_span[1][2] < x_span[2]))    
+            iszero(snap["periodic"][1]) && throw(ArgumentError("axis x is not periodic"))
+        end
+
+        if ((snapshot_span[2][1] > y_span[1]) || (snapshot_span[2][2] < y_span[2]))
+            iszero(snap["periodic"][2]) && throw(ArgumentError("axis y is not periodic"))
+        end
+
+        if ((snapshot_span[3][1] > z_span[1]) || (snapshot_span[3][2] < z_span[2]))
+            iszero(snap["periodic"][3]) && throw(ArgumentError("axis z is not periodic"))
+        end
+
+        max_ids = [1, 1, 1]
+        min_ids = [nx, ny, nz]
+
+        for patch in patches_in(snap, span)
+            idxs = corner_indices(snap, patch)
+
+            max_ids[1] = max(max_ids[1], idxs[2])
+            max_ids[2] = max(max_ids[2], idxs[4])
+            max_ids[3] = max(max_ids[3], idxs[6])
+
+            min_ids[1] = min(min_ids[1], idxs[1])
+            min_ids[2] = min(min_ids[2], idxs[3])
+            min_ids[3] = min(min_ids[3], idxs[5])
+        end
+
+    else
+        max_ids = [nx, ny, nz]
+        min_ids = [1, 1, 1]
+
     end
 
     datashp = (nx, ny, nz)
@@ -401,7 +464,9 @@ function unigrid_volume(snap; iv = 0,  all=false, verbose=0)
     verbose == 1 && println("volume shape $datashp")
 
     for iv in keys(buffer)
-        for (idxs, patch) in values(patchDict)
+        # ids = keys(patchDict)
+        Base.Threads.@threads for id in keys(patchDict)
+            idxs, patch = patchDict[id]
             data = box(patch, iv=iv, all=all, verbose=verbose)
 
             buffer[iv][idxs[1]:idxs[2],
@@ -409,6 +474,7 @@ function unigrid_volume(snap; iv = 0,  all=false, verbose=0)
                        idxs[5]:idxs[6]] = data
 
         end
+        buffer[iv] = buffer[min_ids[2]:max_ids[2], min_ids[1]:max_ids[1], min_ids[3]:max_ids[3]]
     end
 
     if length(keys(buffer)) == 1
@@ -513,3 +579,19 @@ function resample(xs, ys, zs, data::Array{T, 3} where T, newdims)
     return nxs, nzs, nzs, new_data
 end
 
+
+function check_periodicity(snap, span)
+    if length(span) == 2
+        return check_periodicity_2d(snap, span)
+    else
+        return check_periodicity_3d(snap, span)
+    end
+end
+
+function check_periodicity_2d(snap, span)
+
+end
+
+function check_periodicty_3d(snap, span)
+
+end

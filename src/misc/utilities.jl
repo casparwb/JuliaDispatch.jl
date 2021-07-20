@@ -1,5 +1,6 @@
 
 using Printf
+using JuliaDispatch.Select
 
 """ 
     _kw_extract(kw, dict)

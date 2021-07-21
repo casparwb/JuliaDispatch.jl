@@ -42,8 +42,8 @@ function evaluate_expression(patch, expr; all=false, verbose = 0)
             end
         end
     catch e
-        println("Unable to parse expression")
-        throw(e)
+        println("Unable to parse expression $parsed.")
+        return nothing
     end
 
 end
@@ -85,7 +85,9 @@ function build_expression(patch, expr, all)
 
 
     # find the quantities in the expression that are being used 
-    all_vars = patch["idx"]["dict"] |> keys
+    all_vars = patch["idx"]["dict"] |> keys |> collect
+    append!(all_vars, patch["keys"]["known"])
+    all_vars = unique(all_vars)
     for var in all_vars
         m = match(Regex("[$var]{$(length(var))}"), expr)
         if !isnothing(m) && !(m.offset in idxs)  

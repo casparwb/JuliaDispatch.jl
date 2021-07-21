@@ -19,7 +19,7 @@ an `Array`.
                                     must have length(dims) == ndims.
 - `ndims::Int`: number of dimensions
 """
-function init_buffer(snap, iv, dims, num_dims)
+function init_buffer(snap, iv, dims, num_dims; dtype=Float32)
 
     datashp = nothing
     # determine datashape 
@@ -33,24 +33,24 @@ function init_buffer(snap, iv, dims, num_dims)
         end
     end
 
-    buffer = Dict{Union{String, Int}, Array{Number, num_dims}}() # dict for storing quantities
+    buffer = Dict{Union{String, Int}, Array{Float32, num_dims}}() # dict for storing quantities
 
     if typeof(iv) <: String && iv == "all" # if the given iv is `all`
         ivs = [k for (k, iv) in keys(snap["idx"]["dict"])
                if (typeof(iv) <: Int && iv > 0)]
 
         for iv in ivs
-            # buffer[iv] = Array{Number, num_dims}(0, datashp...)
-            buffer[iv] = zeros(Float32, datashp...)
+            buffer[iv] = Array{Float32, num_dims}(undef, datashp...)
+            # buffer[iv] = zeros(Float32, datashp...)
         end
     elseif typeof(iv) <: AbstractArray # if the given iv is an array of different ivs
         for iv_ in iv
-            # buffer[iv_] = Array{Number, num_dims}(0, datashp...)
-            buffer[iv_] = zeros(Float32, datashp...)
+            buffer[iv_] = Array{Float32, num_dims}(undef, datashp...)
+            # buffer[iv_] = zeros(Float32, datashp...)
         end
     else # if the iv is a single entry
-        # buffer[iv] = Array{Number, num_dims}(0, datashp...)
-        buffer[iv] = zeros(Float32, datashp...)
+        buffer[iv] = Array{Float32, num_dims}(undef, datashp...)
+        # buffer[iv] = zeros(Float32, datashp...)
     end
 
     return buffer
@@ -69,7 +69,7 @@ function amr_plane(snap; iv = 0, x = nothing, y = nothing, z = nothing,
 
 
     xyz = [x, y, z]
-    axIdx = getindex((1, 2, 3), xyz .!= nothing)[1]
+    axIdx = getindex((1, 2, 3), xyz .≠ nothing)[1]
     ax = xyz[axIdx]
     dir1, dir2 = getindex((1, 2, 3), xyz .== nothing)
     dir1s, dir2s = getindex(("x", "y", "z"), xyz .== nothing)
@@ -231,17 +231,24 @@ function amr_volume(snap; iv::Union{Int, Array, String} = 0, all = false,
 
         # check if given span extends beyond boundary and if corresponding axis is periodic
         x_span, y_span, z_span = span
+        extends_beyond = false
         if ((snapshot_span[1][1] > x_span[1]) || (snapshot_span[1][2] < x_span[2]))    
+            extends_beyond = true
             iszero(snap["periodic"][1]) && throw(ArgumentError("axis x is not periodic"))
         end
 
         if ((snapshot_span[2][1] > y_span[1]) || (snapshot_span[2][2] < y_span[2]))
+            extends_beyond = true
             iszero(snap["periodic"][2]) && throw(ArgumentError("axis y is not periodic"))
         end
 
         if ((snapshot_span[3][1] > z_span[1]) || (snapshot_span[3][2] < z_span[2]))
+            extends_beyond = true
             iszero(snap["periodic"][3]) && throw(ArgumentError("axis z is not periodic"))
         end
+
+        extends_beyond && @error "amr_volume does not yet support spans beyond a periodic boundary. Aborting."
+
         
         x_span, y_span, z_span = span
         x = range(x_span[1], x_span[2], length=nx)
@@ -284,9 +291,9 @@ function amr_volume(snap; iv::Union{Int, Array, String} = 0, all = false,
     end
 
     if length(keys(buffer)) == 1
-        return collect(values(buffer))[1]
+        return x, y, z, collect(values(buffer))[1]
     else
-        return buffer
+        return x, y, z, buffer
     end
 end
 
@@ -302,7 +309,7 @@ function unigrid_plane(snap::Dict; x = nothing, y = nothing, z = nothing,
 
     xyz = [x, y, z]
     ids = [1, 2, 3]
-    ax = getindex(ids, xyz .!= nothing)[1]
+    ax = getindex(ids, xyz .≠ nothing)[1]
     deleteat!(ids, ax)
 
     patches = patches_in(snap, x=x, y=y, z=z)
@@ -315,7 +322,12 @@ function unigrid_plane(snap::Dict; x = nothing, y = nothing, z = nothing,
     n1, n2 = 0, 0
     patchDict = Dict{Int, Tuple{NTuple{4,Int64}, Dict}}()
     for p in patches
-        idxs = corner_indices(snap, p, dir=ax)
+        if haskey(p, "corner_indices")
+            idxs = (p["corner_indices"][2*ids[1]-1:2*ids[1]]..., p["corner_indices"][2*ids[2]-1:2*ids[2]]...) 
+        else    
+            idxs = corner_indices(snap, p, dir=ax)
+        end
+
 
         n1 = max(n1, idxs[2])
         n2 = max(n2, idxs[4])
@@ -328,38 +340,8 @@ function unigrid_plane(snap::Dict; x = nothing, y = nothing, z = nothing,
 
     if !isnothing(span)
         span = (span[1] .* 1.0, span[2] .* 1.0)
-        snapshot_span = [(snap["cartesian"]["origin"][i], snap["cartesian"]["origin"][i] + snap["cartesian"]["size"][i]) for i = 1:3]
-
-        # check if given span extends beyond boundary and if corresponding axis is periodic
-        axis1_span, axis2_span = span
-        if ((snapshot_span[ids[1]][1] > axis1_span[1]) || (snapshot_span[ids[1]][2] < axis1_span[2]))    
-            iszero(snap["periodic"][ids[1]]) && throw(ArgumentError("axis $(ids[1]) is not periodic"))
-        end
-
-        if ((snapshot_span[ids[2]][1] > axis2_span[1]) || (snapshot_span[ids[2]][2] < axis2_span[2]))
-            iszero(snap["periodic"][ids[2]]) && throw(ArgumentError("axis $(ids[2]) is not periodic"))
-        end
-
-        span = Array([span...])
-        span = tuple(insert!(span, ax, snapshot_span[ax])...)
-
-        max_ids = [1, 1]
-        min_ids = [n1, n1]
-
-        for patch in patches_in(snap, span)
-            idxs = corner_indices(snap, patch, dir=ax)
-
-            max_ids[1] = max(max_ids[1], idxs[2])
-            max_ids[2] = max(max_ids[2], idxs[4])
-
-            min_ids[1] = min(min_ids[1], idxs[1])
-            min_ids[2] = min(min_ids[2], idxs[3])
-        end
-
-    else
-        max_ids = [n1, n2]
-        min_ids = [1, 1]
-
+        @warn "unigrid_plane does not yet support spans beyond a periodic boundary. Calling amr_plane."
+        return amr_plane(snap, iv=iv, x = x, y = y, z = z, verbose = verbose, all = all, span = span, dims=(n1, n2))
     end
 
 
@@ -369,14 +351,12 @@ function unigrid_plane(snap::Dict; x = nothing, y = nothing, z = nothing,
         Base.Threads.@threads for key in patchkeys
             idxs, patch = patchDict[key]
             im = plane(patch, x = x, y = y, z = z, iv = iv, all=all)
-            
             buffer[iv][idxs[3]:idxs[4], idxs[1]:idxs[2]] = im'
         end
-        buffer[iv] = buffer[min_ids[2]:max_ids[2], min_ids[1]:max_ids[1]]
     end
 
     if length(keys(buffer)) == 1
-        return collect(values(buffer))[1]
+        return buffer[iv]
     else
         return buffer
     end
@@ -427,15 +407,21 @@ function unigrid_volume(snap; iv = 0, span=nothing, all=false, verbose=0)
         # check if given span extends beyond boundary and if corresponding axis is periodic
         x_span, y_span, z_span = span
         if ((snapshot_span[1][1] > x_span[1]) || (snapshot_span[1][2] < x_span[2]))    
-            iszero(snap["periodic"][1]) && throw(ArgumentError("axis x is not periodic"))
+            @warn "unigrid_volume does not yet support spans beyond a periodic boundary. Calling amr_volume."
+            return amr_volume(snap, iv=iv, verbose = verbose, all = all, span = span, dims=(nx, ny, nz))
+            # iszero(snap["periodic"][1]) && throw(ArgumentError("axis x is not periodic"))
         end
 
         if ((snapshot_span[2][1] > y_span[1]) || (snapshot_span[2][2] < y_span[2]))
-            iszero(snap["periodic"][2]) && throw(ArgumentError("axis y is not periodic"))
+            @warn "unigrid_volume does not yet support spans beyond a periodic boundary. Calling amr_volume."
+            return amr_volume(snap, iv=iv, verbose = verbose, all = all, span = span, dims=(nx, ny, nz))
+            # iszero(snap["periodic"][2]) && throw(ArgumentError("axis y is not periodic"))
         end
 
         if ((snapshot_span[3][1] > z_span[1]) || (snapshot_span[3][2] < z_span[2]))
-            iszero(snap["periodic"][3]) && throw(ArgumentError("axis z is not periodic"))
+            @warn "unigrid_volume does not yet support spans beyond a periodic boundary. Calling amr_volume."
+            return amr_plane(snap, iv=iv, verbose = verbose, all = all, span = span, dims=(nx, ny, nz))
+            # iszero(snap["periodic"][3]) && throw(ArgumentError("axis z is not periodic"))
         end
 
         max_ids = [1, 1, 1]

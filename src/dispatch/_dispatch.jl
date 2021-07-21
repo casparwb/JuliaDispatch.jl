@@ -28,7 +28,7 @@ function snapshot(iout=0; run="", data="../data", verbose = 0, copy = false, mem
     statedict = Dict{String, Any}()
     rundir = _dir(data, run)
     if !isdir(rundir)
-        println("directory $(rundir) does not exist")
+        throw(ArgumentError("Directory $(rundir) does not exist."))
         return nothing
     end
 
@@ -38,7 +38,7 @@ function snapshot(iout=0; run="", data="../data", verbose = 0, copy = false, mem
     datadir = joinpath(rundir, "$(@sprintf("%05d", iout))")
 
     if !isdir(datadir)
-        println("directory $(datadir) does not exist")
+        throw(ArgumentError("Directory $(datadir) does not exist."))
         return nothing
     end
 
@@ -59,20 +59,20 @@ function snapshot(iout=0; run="", data="../data", verbose = 0, copy = false, mem
     ### finding snapshot files ###
     files = [f for f in readdir(datadir) if endswith(f, "snapshot.nml")]
 
-    println("Number of snapshot.nml files in $datadir: $(length(files))")
+    @info "Number of snapshot.nml files in $datadir: $(length(files))"
     if length(files) == 0
-        println("Directory $datadir has no snapshot.nml file")
+        throw(ArgumentError("Directory $datadir has no snapshot.nml file."))
         return nothing
     end
 
-    file_dict = []
+    # file_dict = []
     @inbounds for f in files
         file = _file(datadir, f)
         nml_list = read_nml(file)
         statedict["nml_list"] = nml_list
         _add_nml_list_to(statedict, nml_list)
 
-        if "idx_nml" in keys(nml_list)
+        if haskey(nml_list, "idx_nml")#"idx_nml" in keys(nml_list)
             idx_dict = nml_list["idx_nml"]
             for (k, v) in idx_dict
                 idx_dict[k] += 1
@@ -88,15 +88,15 @@ function snapshot(iout=0; run="", data="../data", verbose = 0, copy = false, mem
             end
 
             statedict["idx"] = idx
-            for (k, v) in idx["dict"]
-                statedict["idx"][k] = v
-            end
+            # for (k, v) in idx["dict"]
+            #     statedict["idx"][k] = v
+            # end
 
-            statedict["keys"] = []
-            for (k, v) in statedict["idx"]["vars"]
-                push!(statedict["keys"], k)
-                push!(statedict["keys"], v)
-            end
+            # statedict["keys"] = []
+            # for (k, v) in statedict["idx"]["vars"]
+            #     push!(statedict["keys"], k)
+            #     push!(statedict["keys"], v)
+            # end
         end
     end
 
@@ -117,9 +117,7 @@ function snapshot(iout=0; run="", data="../data", verbose = 0, copy = false, mem
     """ add patches as a list of dicts """
     verbose > 1 && println("add patches as a list of dicts") 
 
-    # statedict["patches"] = Dict[]#Array{Dict, 1}([])
     files = [f for f in readdir(datadir) if endswith(f, "_patches.nml")]
-
 
     if !haskey(statedict, "mpi_size")
         statedict["mpi_size"] = 1
@@ -128,20 +126,18 @@ function snapshot(iout=0; run="", data="../data", verbose = 0, copy = false, mem
     patch_dict = read_patch_metadata(iout, run, data, statedict["mpi_size"], verbose=verbose)
 
     if isnothing(patch_dict)
-        println("could not find patch metadata")
+        throw(ErrorException("could not find patch metadata"))
         return nothing
     end
 
     ids = sort(collect(keys(patch_dict)))
     statedict["patches"] = Vector{Dict}(undef, length(ids)) # initialize array for storing patches
 
-    verbose == 1 && println("initiating patch parsing")
+    verbose == 1 && @info "Starting patch parsing"
     Base.Threads.@threads for i in ProgressBar(1:length(ids))
         id = ids[i]
-        #p = _patch2(id, patch_dict[id], statedict)
         p = _patch2(parse(Int, id), patch_dict[id], statedict)
         _add_axes(statedict, p)
-        # push!(statedict["patches"], p)
         statedict["patches"][i] = p
         
         if verbose == 2 && haskey(p, "idx")
@@ -162,7 +158,7 @@ function snapshot(iout=0; run="", data="../data", verbose = 0, copy = false, mem
         end # if
     end # for
 
-    verbose == 1 && println("    added $(length(statedict[string(:patches)])) patches")
+    verbose == 1 && @info "Added $(length(statedict["patches"])) patches"
 
     return statedict
 
@@ -195,17 +191,18 @@ function _add_axes(snap, patch)
     if patch["no_mans_land"]
         first .= first .+ 0.5*patch["ds"]
     end
-    patch["x"] = first[1] .+ patch["ds"][1]*collect(0:n[1]-1)
-    patch["y"] = first[2] .+ patch["ds"][2]*collect(0:n[2]-1)
-    patch["z"] = first[3] .+ patch["ds"][3]*collect(0:n[3]-1)
+
+    patch["x"] = SVector{n[1]}(first[1] .+ patch["ds"][1]*collect(0:n[1]-1))
+    patch["y"] = SVector{n[2]}(first[2] .+ patch["ds"][2]*collect(0:n[2]-1))
+    patch["z"] = SVector{n[3]}(first[3] .+ patch["ds"][3]*collect(0:n[3]-1))
 
 
-    patch["xi"] = patch["x"][(ng[1] + 1):end-ng[1]]
-    patch["yi"] = patch["y"][(ng[2] + 1):end-ng[2]]
-    patch["zi"] = patch["z"][(ng[3] + 1):end-ng[3]]
-    patch["xs"] = patch["x"] .- 0.5*patch["ds"][1]
-    patch["ys"] = patch["y"] .- 0.5*patch["ds"][2]
-    patch["zs"] = patch["z"] .- 0.5*patch["ds"][3]
+    patch["xi"] = SVector{n[1]-2*ng[1]}(patch["x"][(ng[1] + 1):end-ng[1]])
+    patch["yi"] = SVector{n[2]-2*ng[2]}(patch["y"][(ng[2] + 1):end-ng[2]])
+    patch["zi"] = SVector{n[3]-2*ng[3]}(patch["z"][(ng[3] + 1):end-ng[3]])
+    patch["xs"] = SVector{n[1]}(patch["x"] .- 0.5*patch["ds"][1])
+    patch["ys"] = SVector{n[2]}(patch["y"] .- 0.5*patch["ds"][2])
+    patch["zs"] = SVector{n[3]}(patch["z"] .- 0.5*patch["ds"][3])
     patch["xyz"] = [patch["x"], patch["y"], patch["z"]]
     patch["xyzi"] = [patch["xi"], patch["yi"], patch["zi"]]
 
@@ -301,7 +298,7 @@ function _add_nml_list_to(dict::Dict, nml::Dict)
 
             dict[name] = Dict()
             if typeof(nml_dict) <: AbstractArray
-                println("WARNING: more than one "*key)
+                @warn "WARNING: more than one $key"
                 nml_dict = nml_dict[1]
             end
             _add_nml_to(dict[name], nml_dict)
@@ -449,7 +446,13 @@ function _patch2(id, patch_dict, snap; memmap=1, verbose=0)
     end
     patch["all_keys"] = all
 
-    patch["corner_indices"] = corner_indices(snap, patch)
+    # add patch indices
+    try
+        patch["corner_indices"] = corner_indices(snap, patch)
+    catch
+        nothing
+    end
+
     return patch
 end # function
 
@@ -505,7 +508,7 @@ function _var(patch, filed, snap; verbose = 0, copy = nothing)
         verbose == 1 && println("mem($iv)")
 
         if typeof(iv) == typeof("d")
-            iv = patch["idx"][iv]
+            iv = patch["idx"]["dict"][iv]
             iszero(iv) && throw(ErrorException("Quantity $iv not present"))
         end
 
@@ -874,7 +877,7 @@ end
 
 
 function _h(dict)
-    idx = dict["idx"]
+    idx = dict["idx"]["dict"]
     h = zeros(3, dict["nv"])
     if dict["kind"][1:7] == "stagger"
         if (idx["p1"] >= 1)  h[1,idx["p1"]] = -0.5 end

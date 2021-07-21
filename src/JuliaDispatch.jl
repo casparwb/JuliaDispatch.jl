@@ -13,8 +13,8 @@
 # end # end module
 
 module JuliaDispatch
-    include("Utils.jl")
     include("Select.jl")
+    include("Utils.jl")
     # include("Interpolations.jl")
     include("Buffers.jl")
     include("Dispatch.jl")

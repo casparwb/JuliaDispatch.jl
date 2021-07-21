@@ -29,7 +29,7 @@ julia> plot_values_along(snap, [0.0, 1.0, 2.0], iv="ekin", title="Kinetic Energy
 """
 function plot_values_along(snap::Dict, pt=[0.5, 0.5, 0.5]; iv = 0, dir = 1, verbose = 0, kw...)
     kw = Dict(kw)
-
+1
 
     kv = Dict{Symbol, Any}(:verbose => 0,
                            :all => false, :iv => 0,
@@ -162,7 +162,7 @@ function sliceplot(snap::Dict,
     axis = getindex(dirs, xyz .!= nothing)[1]   # axis at which we are slicing
     planeDirs = getindex(dirs, xyz .== nothing) # axes of plane
     ax1idx, ax2idx = planeDirs[1][3], planeDirs[2][3]
-    verbose == 1 && @info ("Sliceplot at $(axis[2]) = $(axis[1]) in plane $((planeDirs[1][2], planeDirs[2][2]))")
+    verbose == 1 && @info "Sliceplot at $(axis[2]) = $(axis[1]) in plane $((planeDirs[1][2], planeDirs[2][2]))"
     
     origin = copy(snap["cartesian"]["origin"])
     Size = copy(snap["cartesian"]["size"])
@@ -200,13 +200,13 @@ function sliceplot(snap::Dict,
 
     
     if unigrid && isnothing(kv[:dims])
-        data = unigrid_volume(snap, iv=iv, span=span, verbose=verbose)
+        data = unigrid_plane(snap, iv=iv, x = x, y = y, z = z, span=span, verbose = verbose > 4 ? 1 : 0)
         verbose > 1 && @info ("Unigrid data with shape $(size(data))")
         d1 = range(center[1]-width[1], center[1]+width[1], length=size(data, 2)) # dimension 1
         d2 = range(center[2]-width[2], center[2]+width[2], length=size(data, 1)) # dimension 2
     else
 
-        d1, d2, data = amr_volume(snap, iv=iv, span=span, dims=kv[:dims], verbose=verbose)
+        d1, d2, data = amr_plane(snap, iv=iv, x = x, y = y, z = z, span=span, dims=kv[:dims], verbose = verbose > 4 ? 1 : 0)
         verbose > 1 && @info ("Mesh refined data with shape $(size(data))")
     end
 
@@ -415,7 +415,6 @@ function volume(snap::Dict; iv = 0, unigrid=true, kw...)
     
     origin = copy(snap["cartesian"]["origin"])
     Size = copy(snap["cartesian"]["size"])
-    deleteat!(origin, axis[3])
     # # deleteat!(Size, axis[3])
 
     # check if new width is given
@@ -440,7 +439,9 @@ function volume(snap::Dict; iv = 0, unigrid=true, kw...)
 
     # realign data if new width or center is given
     if wflag || cflag
-        span = ((center[1] - width[1], center[1] + width[1]), (center[2] - width[2], center[2] + width[2]))
+        span = ((center[1] - width[1], center[1] + width[1]), 
+                (center[2] - width[2], center[2] + width[2]), 
+                (center[3] - width[3], center[3] + width[3]))
     elseif !isnothing(kv[:span]) 
         span = kv[:span]
     else 
@@ -449,13 +450,15 @@ function volume(snap::Dict; iv = 0, unigrid=true, kw...)
 
     
     if unigrid && isnothing(kv[:dims])
-        data = unigrid_volume(snap, iv=iv, x=x, y=y, z=z, span=span, verbose=verbose)
+        data = unigrid_volume(snap, iv=iv, span=span, verbose=verbose)
         verbose > 1 && @info ("Unigrid data with shape $(size(data))")
-        d1 = range(center[1]-width[1], center[1]+width[1], length=size(data, 2)) # dimension 1
-        d2 = range(center[2]-width[2], center[2]+width[2], length=size(data, 1)) # dimension 2
+        x = range(center[1]-width[1], center[1]+width[1], length=size(data, 2)) 
+        y = range(center[2]-width[2], center[2]+width[2], length=size(data, 1)) 
+        z = range(center[3]-width[3], center[3]+width[3], length=size(data, 3)) 
+
     else
 
-        d1, d2, data = amr_plane(snap, iv=iv, x=x, y=y, z=z, span=span, dims=kv[:dims], verbose=verbose)
+        x, y, z, data = amr_volume(snap, iv=iv, span=span, dims=kv[:dims], verbose=verbose)
         verbose > 1 && @info ("Mesh refined data with shape $(size(data))")
     end
 
@@ -534,6 +537,7 @@ function volume(snap::Dict; iv = 0, unigrid=true, kw...)
 
 
     return hm
+end
 
 """
     anim_plane(;data="../data", run="", x = nothing, y = nothing, z = nothing, iv=0, 

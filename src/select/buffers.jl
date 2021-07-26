@@ -171,20 +171,24 @@ function amr_plane(snap; iv = 0, x = nothing, y = nothing, z = nothing,
             elseif patch["guard_zones"] && all
                 li = ones(Int, 3)
                 ui = patch["gn"]
-            else
-                li = ones(Int, 3)
-                ui = patch["n"]
+            else 
+                li = patch["ng"] .+ 1#ones(Int, 3)
+                ui = patch["gn"] .- li .+ 1#patch["n"]
             end
 
-            axis1extent = patch[dir1s][li[dir1]:ui[dir1]]
-            axis2extent = patch[dir2s][li[dir2]:ui[dir2]]
+            axis1extent = patch[dir1s]#[li[dir1]:ui[dir1]]
+            axis2extent = patch[dir2s]#[li[dir2]:ui[dir2]]
 
-            axis1_indices = findall(axis1extent[1] .< axis1 .< axis1extent[end]) # indices extended by patch in plane axis 1
-            axis2_indices = findall(axis2extent[1] .< axis2 .< axis2extent[end]) # indices extended by patch in plane axis 2
+            axis1_indices = findall(axis1extent[li[dir1]-1] .< axis1 .< axis1extent[ui[dir1]+1]) # indices extended by patch in plane axis 1
+            axis2_indices = findall(axis2extent[li[dir2]-1] .< axis2 .< axis2extent[ui[dir2]+1]) # indices extended by patch in plane axis 2
 
-            itp = LinearInterpolation((patch["x"], patch["y"], patch["z"]), box(patch, iv=iv, all=true), extrapolation_bc=Throw())
+            data = plane(patch, iv=iv, all=true)
+
+            itp = LinearInterpolation((axis1extent[li[dir1]:ui[dir1]], axis2extent[li[dir2]:ui[dir2]]), data, extrapolation_bc=Line())
+
+            # itp = LinearInterpolation((patch["x"], patch["y"], patch["z"]), box(patch, iv=iv, all=true), extrapolation_bc=Throw())
             for i2 ∈ axis2_indices, i1 ∈ axis1_indices
-                buffer[iv][i2, i1] = interp(itp, axis1[i1], axis2[i2]) # interpolate and insert into buffer
+                buffer[iv][i2, i1] = itp(axis1[i1], axis2[i2])#interp(itp, axis1[i1], axis2[i2]) # interpolate and insert into buffer
             end
         end
     end

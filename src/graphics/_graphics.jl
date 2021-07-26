@@ -1,4 +1,4 @@
-using Plots, LaTeXStrings, ProgressBars
+using Plots, LaTeXStrings, ProgressBars, Printf
 # using PyPlot: streamplot, imshow, figure
 #import Makie
 import WGLMakie
@@ -277,7 +277,8 @@ function sliceplot(snap::Dict,
         pos = (axis[2], axis[1])
         time = round(snap["time"], digits=2)
         try
-            title!(latexify("$(pos[1]) = $(pos[2]), t = $time"))
+            # title!(latexify(@sprintf "$(pos[1]) = $(pos[2]), t = $time" ))
+            title!(latexify(@sprintf "%c = %.2f, t = %.2f" pos[1] pos[2] time))
         catch
             title!(L"$(pos[1]) = $(pos[2]), t = $time")
         end
@@ -564,6 +565,7 @@ function anim_plane(;data="../data", run="", x = nothing, y = nothing, z = nothi
         times = get_snapshot_time.(snapIDs, data=data, run=run)
         start = snapIDs[argmin(abs.(times .- t0))]
         stop = snapIDs[argmin(abs.(times .- tmax))]
+        snapIDs = snapIDs[start:step:stop]
     else # otherwise use all snapshots
         start = snapIDs[1]
         stop = snapIDs[end]
@@ -571,7 +573,6 @@ function anim_plane(;data="../data", run="", x = nothing, y = nothing, z = nothi
         tmax = get_snapshot_time(stop, data=data, run=run)
     end
     
-    snapIDs = snapIDs[start:step:stop]
 
     anim = @animate for i in snapIDs
         snap = snapshot(i, data=data, run=run, verbose = verbose)

@@ -21,7 +21,7 @@ Parses patches and returns a `Dict` with all properties of snapshot `iout`.
 - `run::String`, path to snapshots folders relative to data, default `""`
 
 """
-function snapshot(iout=0; run="", data="../data", progress=true, verbose = 0, copy = false, memmap = 1)
+function snapshot(iout=0; run="", data="../data", progress=true, suppress=false, verbose = 0, copy = false, memmap = 1)
 
 
     ### find data- and rundirs ###
@@ -54,12 +54,12 @@ function snapshot(iout=0; run="", data="../data", progress=true, verbose = 0, co
 
     #params_list = read_nml(file)
     statedict["params_list"] = read_nml(file)
-    _add_nml_list_to(statedict, statedict["params_list"])
+    _add_nml_list_to(statedict, statedict["params_list"], suppress=suppress)
 
     ### finding snapshot files ###
     files = [f for f in readdir(datadir) if endswith(f, "snapshot.nml")]
 
-    @info "Number of snapshot.nml files in $datadir: $(length(files))"
+    !suppress && @info "Number of snapshot.nml files in $datadir: $(length(files))"
     if length(files) == 0
         throw(ArgumentError("Directory $datadir has no snapshot.nml file."))
         return nothing
@@ -294,7 +294,7 @@ function _file(dir, file)
 end
 
 """ Add all namelists as dictionairy entries """
-function _add_nml_list_to(dict::Dict, nml::Dict)
+function _add_nml_list_to(dict::Dict, nml::Dict; suppress=false)
 
     for (key, nml_dict) in nml
         if key == "snapshot_nml"
@@ -306,7 +306,7 @@ function _add_nml_list_to(dict::Dict, nml::Dict)
 
             dict[name] = Dict()
             if typeof(nml_dict) <: AbstractArray
-                @warn "WARNING: more than one $key"
+                !suppress && @warn "WARNING: more than one $key"
                 nml_dict = nml_dict[1]
             end
             _add_nml_to(dict[name], nml_dict)

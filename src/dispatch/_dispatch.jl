@@ -588,11 +588,10 @@ function _var(patch, filed, snap; verbose = 0, copy = nothing)
     end
 
     function internal(v; all = false)
-
         vshape = size(v)
-        if all|| length(vshape) < 3 || minimum(vshape) <= 4
+        if all || length(vshape) < 3 || minimum(vshape) <= 4
             return v
-
+        
         elseif patch["guard_zones"]
             l = patch["ng"]
             u = l + patch["n"]

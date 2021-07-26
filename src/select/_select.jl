@@ -366,9 +366,14 @@ function plane(patch; iv = 0, x = nothing, y = nothing, z = nothing,
         ui = patch["n"]
     end
 
-    # construct interpolations object with knots, data, and boundary conditions
+    data = box(patch, iv=iv, all=true)
+    if any(map(isone, size(data)))
+        idx = findall(isone, size(data))[1]
+        return selectdim(data, idx, 1)
+    end
+
     itp = LinearInterpolation((patch["x"], patch["y"], patch["z"]), 
-                               box(patch, iv=iv, all=true), 
+                               data, 
                                extrapolation_bc = Throw())
 
     if !isnothing(x)

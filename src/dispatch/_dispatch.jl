@@ -351,7 +351,7 @@ function _patch2(id, patch_dict, snap; memmap=1, verbose=0)
     # add idx attribute
     if haskey(snap, "idx")
         patch["idx"] = snap["idx"]
-        patch["idx"]["h"] = _h(patch)
+        # patch["idx"]["h"] = _h(patch)
     end
 
     if haskey(patch, "size") && haskey(patch, "n")

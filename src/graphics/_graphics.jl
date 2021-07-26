@@ -280,7 +280,7 @@ function sliceplot(snap::Dict,
             # title!(latexify(@sprintf "$(pos[1]) = $(pos[2]), t = $time" ))
             title!(latexify(@sprintf "%c = %.2f, t = %.2f" pos[1] pos[2] time))
         catch
-            title!(L"$(pos[1]) = $(pos[2]), t = $time")
+            title!(latexstring(@sprintf "%c = %.2f, t = %.2f" pos[1] pos[2] time))
         end
     end
 

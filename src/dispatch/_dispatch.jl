@@ -21,7 +21,7 @@ Parses patches and returns a `Dict` with all properties of snapshot `iout`.
 - `run::String`, path to snapshots folders relative to data, default `""`
 
 """
-function snapshot(iout=0; run="", data="../data", verbose = 0, copy = false, memmap = 1)
+function snapshot(iout=0; run="", data="../data", progress=true, verbose = 0, copy = false, memmap = 1)
 
 
     ### find data- and rundirs ###
@@ -133,8 +133,16 @@ function snapshot(iout=0; run="", data="../data", verbose = 0, copy = false, mem
     ids = sort(collect(keys(patch_dict)))
     statedict["patches"] = Vector{Dict}(undef, length(ids)) # initialize array for storing patches
 
+    # if progress
+    #     Progress(x) = ProgressBar(x)
+    # else
+    #     Progress(x) = x
+    # end
+
+    Progress(x) = progress ? ProgressBar(x) : x
+
     verbose == 1 && @info "Starting patch parsing"
-    Base.Threads.@threads for i in ProgressBar(1:length(ids))
+    Base.Threads.@threads for i in Progress(1:length(ids))
         id = ids[i]
         p = _patch2(parse(Int, id), patch_dict[id], statedict)
         _add_axes(statedict, p)

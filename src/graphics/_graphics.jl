@@ -567,8 +567,8 @@ function anim_plane(;data="../data", run="", x = nothing, y = nothing, z = nothi
     else # otherwise use all snapshots
         start = snapIDs[1]
         stop = snapIDs[end]
-        t0 = get_snap_time(start, data=data, run=run)
-        tmax = get_snap_time(stop, data=data, run=run)
+        t0 = get_snapshot_time(start, data=data, run=run)
+        tmax = get_snapshot_time(stop, data=data, run=run)
     end
     
     snapIDs = snapIDs[start:step:stop]

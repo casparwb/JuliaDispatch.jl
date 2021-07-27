@@ -155,38 +155,29 @@ function amr_plane(snap; iv = 0, x = nothing, y = nothing, z = nothing,
         axis2 = sub_axis2
     end
 
-    interpx(itp, y, z) = itp(ax, y, z)
-    interpy(itp, x, z) = itp(x, ax, z)
-    interpz(itp, x, y) = itp(x, y, ax)
-    interp = [interpx, interpy, interpz][axIdx] 
-
+    if axIdx == 2
+        extentids = ((3, 4), (1, 2))
+    else
+        extentids = ((1, 2), (3, 4))
+    end
 
     for iv in keys(buffer)
+        fill!(buffer[iv], 0)
         Base.Threads.@threads for patchID in eachindex(patches)
             patch = patches[patchID]
+            
+  
+            axis1extent = patch["extent"][axIdx,:][extentids[1][1]:extentids[1][2]]#patch[dir1s]#[li[dir1]:ui[dir1]]
+            axis2extent = patch["extent"][axIdx,:][extentids[2][1]:extentids[2][2]]#patch[dir2s]#[li[dir2]:ui[dir2]]
+            
+            axis1_indices = findall(axis1extent[1] .<= axis1 .<= axis1extent[2]) # indices extended by patch in plane axis 1
+            axis2_indices = findall(axis2extent[1] .<= axis2 .<= axis2extent[2]) # indices extended by patch in plane axis 2
 
-            if patch["guard_zones"] && !all
-                li = patch["li"] .- 1  # lower inner
-                ui = patch["ui"] .+ 1  # upper inner
-            elseif patch["guard_zones"] && all
-                li = ones(Int, 3)
-                ui = patch["gn"]
-            else 
-                li = patch["ng"] .+ 1#ones(Int, 3)
-                ui = patch["gn"] .- li .+ 1#patch["n"]
-            end
+            data = plane(patch, x = x, y = y, z = z, iv=iv, all=false)
+            itp = LinearInterpolation((LinRange(axis1extent[1], axis1extent[2], size(data, 1)), 
+                                       LinRange(axis2extent[1], axis2extent[2], size(data, 2))), 
+                                       data, extrapolation_bc=Line())
 
-            axis1extent = patch[dir1s]#[li[dir1]:ui[dir1]]
-            axis2extent = patch[dir2s]#[li[dir2]:ui[dir2]]
-
-            axis1_indices = findall(axis1extent[li[dir1]-1] .< axis1 .< axis1extent[ui[dir1]+1]) # indices extended by patch in plane axis 1
-            axis2_indices = findall(axis2extent[li[dir2]-1] .< axis2 .< axis2extent[ui[dir2]+1]) # indices extended by patch in plane axis 2
-
-            data = plane(patch, iv=iv, all=true)
-
-            itp = LinearInterpolation((axis1extent[li[dir1]:ui[dir1]], axis2extent[li[dir2]:ui[dir2]]), data, extrapolation_bc=Line())
-
-            # itp = LinearInterpolation((patch["x"], patch["y"], patch["z"]), box(patch, iv=iv, all=true), extrapolation_bc=Throw())
             for i2 ∈ axis2_indices, i1 ∈ axis1_indices
                 buffer[iv][i2, i1] = itp(axis1[i1], axis2[i2])#interp(itp, axis1[i1], axis2[i2]) # interpolate and insert into buffer
             end
@@ -265,31 +256,24 @@ function amr_volume(snap; iv::Union{Int, Array, String} = 0, all = false,
     for iv in keys(buffer)
         Base.Threads.@threads for patch in patches
 
-            if patch["guard_zones"] && !all
-                li = patch["li"] .- 1  # lower inner
-                ui = patch["ui"] .+ 1  # upper inner
-            elseif patch["guard_zones"] && all
-                li = ones(Int, 3)
-                ui = patch["gn"]
-            else
-                li = ones(Int, 3)
-                ui = patch["n"]
-            end
 
-            x_extent = patch["x"][li[1]:ui[1]]
-            y_extent = patch["y"][li[2]:ui[2]]
-            z_extent = patch["z"][li[3]:ui[3]]
+            x_extent = patch["extent"][3,1:2]#patch["x"][li[1]:ui[1]]
+            y_extent = patch["extent"][3,3:4]#patch["y"][li[2]:ui[2]]
+            z_extent = patch["extent"][1,3:4]#patch["z"][li[3]:ui[3]]
 
-            x_ids = findall(x_extent[1] .< x .< x_extent[end])
-            y_ids = findall(y_extent[1] .< y .< y_extent[end])
-            z_ids = findall(z_extent[1] .< z .< z_extent[end])
+            x_ids = findall(x_extent[1] .<= x .<= x_extent[end])
+            y_ids = findall(y_extent[1] .<= y .<= y_extent[end])
+            z_ids = findall(z_extent[1] .<= z .<= z_extent[end])
 
-            itp = LinearInterpolation((patch["x"], patch["y"], patch["z"]), 
-                                       box(patch, iv=iv, verbose=verbose, all=true), 
+            data = box(patch, iv=iv, verbose=verbose, all=false)
+            itp = LinearInterpolation((LinRange(x_extent[1], x_extent[2], size(data,1)), 
+                                       LinRange(y_extent[1], y_extent[2], size(data,2)), 
+                                       LinRange(z_extent[1], z_extent[2], size(data,3))), 
+                                       data, 
                                        extrapolation_bc=Throw())
 
             @inbounds for iz in z_ids, iy in y_ids, ix in x_ids
-                buffer[iv][ix, iy, iz] = itp(x[ix], y[iy], z[iz])
+                buffer[iv][iy, ix, iz] = itp(x[ix], y[iy], z[iz])
             end
         end
     end
@@ -326,12 +310,11 @@ function unigrid_plane(snap::Dict; x = nothing, y = nothing, z = nothing,
     n1, n2 = 0, 0
     patchDict = Dict{Int, Tuple{NTuple{4,Int64}, Dict}}()
     for p in patches
-        if haskey(p, "corner_indices")
-            idxs = (p["corner_indices"][2*ids[1]-1:2*ids[1]]..., p["corner_indices"][2*ids[2]-1:2*ids[2]]...) 
-        else    
-            idxs = corner_indices(snap, p, dir=ax)
-        end
-
+        # if haskey(p, "corner_indices")
+        #     idxs = (p["corner_indices"][2*ids[1]-1:2*ids[1]]..., p["corner_indices"][2*ids[2]-1:2*ids[2]]...) 
+        # else    
+        # end
+        idxs = corner_indices(snap, p, dir=ax)
 
         n1 = max(n1, idxs[2])
         n2 = max(n2, idxs[4])

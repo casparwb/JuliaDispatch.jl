@@ -285,7 +285,7 @@ end
 """
     corner_indices(snap, patch; dir=1)
 
-Get the corner indices of a given patch.
+Get the corner indices of a given patch in a given direction.
 """
 function corner_indices(snap, patch; dir=1)
 

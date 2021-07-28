@@ -24,9 +24,8 @@ docs/site/
 Manifest.toml
 
 # File for the TestSnapshot test
-test/data/orz/params.jld
-test/data/orz/00000/snapshot.jld
-test/data/orz/00100/snapshot.jld
 test/data/orz/data/params.jld
-test/data/orz/data/00100/patches.jld
+test/data/orz/data/00000/snapshot.jld
 test/data/orz/data/00100/snapshot.jld
+test/data/orz/data/00000/patches.jld
+test/data/orz/data/00100/patches.jld

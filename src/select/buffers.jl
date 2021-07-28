@@ -310,10 +310,7 @@ function unigrid_plane(snap::Dict; x = nothing, y = nothing, z = nothing,
     n1, n2 = 0, 0
     patchDict = Dict{Int, Tuple{NTuple{4,Int64}, Dict}}()
     for p in patches
-        # if haskey(p, "corner_indices")
-        #     idxs = (p["corner_indices"][2*ids[1]-1:2*ids[1]]..., p["corner_indices"][2*ids[2]-1:2*ids[2]]...) 
-        # else    
-        # end
+
         idxs = corner_indices(snap, p, dir=ax)
 
         n1 = max(n1, idxs[2])
@@ -377,7 +374,7 @@ function unigrid_volume(snap; iv = 0, span=nothing, all=false, verbose=0)
 
     nx, ny, nz = 0, 0, 0
     for p in patches
-        idxs = corner_indices(snap, p)
+        idxs = corner_indices_all(snap, p)
 
         nx = max(idxs[2], nx)
         ny = max(idxs[4], ny)
@@ -415,7 +412,7 @@ function unigrid_volume(snap; iv = 0, span=nothing, all=false, verbose=0)
         min_ids = [nx, ny, nz]
 
         for patch in patches_in(snap, span)
-            idxs = corner_indices(snap, patch)
+            idxs = corner_indices_all(snap, patch)
 
             max_ids[1] = max(max_ids[1], idxs[2])
             max_ids[2] = max(max_ids[2], idxs[4])

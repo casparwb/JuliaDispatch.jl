@@ -454,12 +454,12 @@ function _patch2(id, patch_dict, snap; memmap=1, verbose=0)
     end
     patch["all_keys"] = all
 
-    # add patch indices
-    try
-        patch["corner_indices"] = corner_indices(snap, patch)
-    catch
-        nothing
-    end
+    # # add patch indices
+    # try
+    #     patch["corner_indices"] = corner_indices(snap, patch)
+    # catch
+    #     nothing
+    # end
 
     return patch
 end # function

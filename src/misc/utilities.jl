@@ -92,3 +92,32 @@ function get_snapshot_ids(;data="../data", run="")
 
 end
 
+
+"""
+    get_new_snapshot(current_snap; data="data/", run="", sleeptime=10, maxsleep=100)
+
+Return a snapshot with `ID = current_snap + 1`. Will wait for new snapshots as they are being produced. 
+If program waits for more than `maxsleep` seconds without finding a new snapshot, the program will exit.
+"""
+function get_new_snapshot(current_snap; data="data/", run="", sleeptime=10, maxsleep=100)
+    total_slept = 0
+    while true
+        snaps = get_snapshot_ids(data=data, run=run)
+        new = findall(snaps .> current_snap)
+        if !isempty(new)
+            println("Parsing snapshot $current_snap")
+            current_snap = snaps[new[1]]
+            return current_snap#snapshot(current_snap, data=data, run=run, progress=false, suppress=true)
+        else
+            println("Waiting for new snapshot.")
+            sleep(sleeptime)
+            total_slept += sleeptime
+        end
+
+        if total_slept >= maxsleep
+            println("Waited $(maxsleep)s without new snapshot. Finshing up.")
+            return nothing
+        end
+    end
+        
+end

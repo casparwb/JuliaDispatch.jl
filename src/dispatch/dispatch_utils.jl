@@ -205,3 +205,24 @@ function _parse_multiple(items)
 end # function
 
 
+"""
+    cache_snapshots_live(;data="data/", run="", current_snap=0, sleeptime=10)
+
+Read snapshots live as they are being produced by a simulation in the given `data/run` directory, caching the 
+namelists for faster loading of snapshots later.
+ Will start from snapshot `current_snap`.
+ Will wait for `sleeptime` seconds to look again if no new snapshot is found. If program waits for more than
+`maxsleep` seconds without finding a new snapshot, the program will exit.
+"""
+function cache_snapshots_live(;data="data/", run="", current_snap=0, sleeptime=10, maxsleep=100)
+    while true
+        snap = get_new_snapshot(current_snap, data=data, run=run, sleeptime=sleeptime, 
+                                              maxsleep=maxsleep)
+        if isnothing(snap)
+            break
+        else
+            current_snap = snapshot(snap, data=data, run=run, progress=false, suppress=true)["iout"]
+        end
+    end
+    return nothing
+end

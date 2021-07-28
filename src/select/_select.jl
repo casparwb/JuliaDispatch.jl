@@ -304,11 +304,11 @@ function corner_indices(snap, patch; dir=1)
 end
 
 """
-    corner_indices(snap, patch)
+    corner_indices_all(snap, patch)
 
 Get the corner indices of a given patch.
 """
-function corner_indices(snap, patch)
+function corner_indices_all(snap, patch)
 
 
     i = (patch["position"] .- patch["size"]/2 .- snap["cartesian"]["origin"])./patch["ds"]

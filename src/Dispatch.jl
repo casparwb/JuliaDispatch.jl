@@ -2,5 +2,5 @@ module Dispatch
     using JLD
     include("dispatch/_dispatch.jl")
 
-    export snapshot
+    export snapshot, cache_snapshots_live
 end

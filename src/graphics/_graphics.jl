@@ -574,8 +574,8 @@ function anim_plane(;data="../data", run="", x = nothing, y = nothing, z = nothi
     end
     
 
-    anim = @animate for i in snapIDs
-        snap = snapshot(i, data=data, run=run, verbose = verbose)
+    anim = @animate for i in ProgressBar(snapIDs)
+        snap = snapshot(i, data=data, run=run, verbose = verbose, progress=false, suppress=true)
         sliceplot(snap, iv=iv, unigrid=unigrid, x=x, y=y, z=z,
                   verbose=verbose; kw...)
     end

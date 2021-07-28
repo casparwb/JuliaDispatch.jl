@@ -162,7 +162,6 @@ function amr_plane(snap; iv = 0, x = nothing, y = nothing, z = nothing,
     end
 
     for iv in keys(buffer)
-        fill!(buffer[iv], 0)
         Base.Threads.@threads for patchID in eachindex(patches)
             patch = patches[patchID]
             

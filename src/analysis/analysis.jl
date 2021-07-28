@@ -1,7 +1,7 @@
 using FFTW, KernelDensity
 using JuliaDispatch.Utils: get_n_snapshots
 using JuliaDispatch.Select
-using StaticArrays, LinearAlgebra, SparseArrays
+using StaticArrays, SparseArrays
 
 """ WORK IN PROGRESS """
 
@@ -345,26 +345,3 @@ function density2d(snap; iv=0, ax=1, x=nothing, y=nothing, z=nothing, unigrid=fa
 
     return KDE.x, KDE.y, KDE.density
 end
-
-function gradient(snap; iv = 0, x = nothing, y = nothing, z = nothing)
-
-
-
-end
-
-function LaplacianMatrix(Nx, Ny, Lx, Ly; return_sparse=true)
-    dx = Lx / Nx
-    dy = Ly / Ny
-
-    Dx = [ [1.0 zeros(1,Nx-1)]; diagm(1 => ones(Nx-1)) - I(Nx)] / dx
-    Dy = [ [1.0 zeros(1,Ny-1)]; diagm(1 => ones(Ny-1)) - I(Ny)] / dy
-
-    Ax = Dx' * Dx
-    Ay = Dy' * Dy
-
-    if return_sparse
-        return -1*sparse(kron(I(Ny), Ax) + kron(Ay, I(Nx)))
-    else
-        return -1*(kron(I(Ny), Ax) + kron(Ay, I(Nx)))
-    end
- end

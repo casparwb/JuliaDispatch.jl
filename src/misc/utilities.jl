@@ -77,13 +77,13 @@ Return an array of IDs of all snapshots in the given `data/run`-folder.
 function get_snapshot_ids(;data="../data", run="")
 
     nsnaps = get_n_snapshots(run=run, data=data)
-    IDs = zeros(Int, nsnaps)
 
     datadir = _dir(data, run)
     folders = [folder for folder in readdir(datadir) if (isdir(datadir*"$folder") && 
                                                          startswith(folder, "0")  && 
                                                          "snapshot.nml" in readdir(datadir*"$folder"))]
-    
+    IDs = zeros(Int, length(folders))
+    if nsnaps != length(folders) @warn "nsnaps != length(folders)" end
     for (i, folder) in enumerate(folders)
         IDs[i] = parse(Int, folder)
     end
@@ -96,10 +96,10 @@ end
 """
     get_new_snapshot(current_snap; data="data/", run="", sleeptime=10, maxsleep=100)
 
-Return a snapshot with `ID = current_snap + 1`. Will wait for new snapshots as they are being produced. 
+Return snapshot id with `ID = current_snap + 1`. Will wait for new snapshots as they are being produced. 
 If program waits for more than `maxsleep` seconds without finding a new snapshot, the program will exit.
 """
-function get_new_snapshot(current_snap; data="data/", run="", sleeptime=10, maxsleep=100)
+function get_new_snapshot(current_snap; data="data/", run="", sleeptime=10, maxsleep=100, npatches=nothing)
     total_slept = 0
     while true
         snaps = get_snapshot_ids(data=data, run=run)
@@ -107,6 +107,12 @@ function get_new_snapshot(current_snap; data="data/", run="", sleeptime=10, maxs
         if !isempty(new)
             println("Parsing snapshot $current_snap")
             current_snap = snaps[new[1]]
+            if !isnothing(npatches)
+                while get_n_patches(current_snap, data=data, run=run) != npatches
+                    sleep(1)
+                end
+            end                
+
             return current_snap#snapshot(current_snap, data=data, run=run, progress=false, suppress=true)
         else
             println("Waiting for new snapshot.")
@@ -120,4 +126,15 @@ function get_new_snapshot(current_snap; data="data/", run="", sleeptime=10, maxs
         end
     end
         
+end
+
+
+"""
+    get_n_patches(iout; data="data", run="")
+
+Return the number of patches in the given snapshot `iout` in the `data/run`-directory.
+"""
+function get_n_patches(iout; data="data", run="")
+    snapdir = _dir(data, run)*@sprintf("%05d", iout)
+    return length([dir for dir in readdir(snapdir) if endswith(dir, ".dat")])
 end

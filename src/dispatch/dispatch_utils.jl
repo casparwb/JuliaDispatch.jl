@@ -214,10 +214,10 @@ namelists for faster loading of snapshots later.
  Will wait for `sleeptime` seconds to look again if no new snapshot is found. If program waits for more than
 `maxsleep` seconds without finding a new snapshot, the program will exit.
 """
-function cache_snapshots_live(;data="data/", run="", current_snap=0, sleeptime=10, maxsleep=100)
+function cache_snapshots_live(;data="data/", run="", current_snap=0, sleeptime=10, maxsleep=100, npatches=nothing)
     while true
         snap = get_new_snapshot(current_snap, data=data, run=run, sleeptime=sleeptime, 
-                                              maxsleep=maxsleep)
+                                              maxsleep=maxsleep, npatches=npatches)
         if isnothing(snap)
             break
         else

@@ -1,7 +1,7 @@
 using FFTW, KernelDensity
 using JuliaDispatch.Utils: get_n_snapshots
 using JuliaDispatch.Select
-using StaticArrays, SparseArrays
+using StaticArrays
 
 """ WORK IN PROGRESS """
 

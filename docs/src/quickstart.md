@@ -79,7 +79,7 @@ end
 To see which quantities are present in the snapshot, you can print the `["idx"]["dict"]` of a snapshot. This returns a dictionary with keys equal to the different quantites, and values as integers corresponding to their offset in the data files. Any quantity that has a value `< 0` is present and can be extracted from the data files.
 
 ```@example 1
-using JuliaDispatch, JuliaDispatch.Dispatch
+using JuliaDispatch, JuliaDispatch.Dispatch, JLD
 data = "../../test/data/orz/data/" # hide
 snap = snapshot(0, data=data)
 for (k, v) in snap["idx"]["dict"]
@@ -94,7 +94,7 @@ The `JuliaDispatch` package has support for parsing expressions. This means that
 ```@example 1
 pi = 3.14 #
 patch = snap["patches"][1] # get the first patch
-velocity = snap["var"]("$pi*sqrt(ux^2 + uy^2 + uz^2)") # equivalent to "3.14*sqrt(ux^2 + uy^2 + uz^2)"
+velocity = patch["var"]("$pi*sqrt(ux^2 + uy^2 + uz^2)") # equivalent to "3.14*sqrt(ux^2 + uy^2 + uz^2)"
 ```
 
 ### Data Interpolation
@@ -110,7 +110,7 @@ using JuliaDispatch
 using JuliaDispatch.Dispatch
 data = "../test/data/orz/data" # hide
 snap = snapshot(100, data=data) # data is a string variable pointing to the folder containing the snapshots
-println("Snapshot time: $(snap["time"])) # get the time the snapshot was taken
+println("Snapshot time: $(snap["time"])") # get the time the snapshot was taken
 println("Number of patches = $(length(snap["patches"]))) # print the number of patches
 ```
 

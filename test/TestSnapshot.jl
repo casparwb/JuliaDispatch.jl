@@ -1,14 +1,14 @@
 module TestSnapshot
 
     using JuliaDispatch.Dispatch
-    using PyCall, Test, JLD
+    using PyCall, Test, JLD2
     
     # something is wrong with reading cached namelists, so they are deleted if they exist
-    isfile("data/orz/data/params.jld") && rm("data/orz/data/params.jld")
-    isfile("data/orz/data/00000/snapshot.jld") && rm("data/orz/data/00000/snapshot.jld")
-    isfile("data/orz/data/00000/patches.jld") && rm("data/orz/data/00000/patches.jld")
-    isfile("data/orz/data/00100/snapshot.jld") && rm("data/orz/data/00100/snapshot.jld")
-    isfile("data/orz/data/00100/patches.jld") && rm("data/orz/data/00100/patches.jld")
+    isfile("data/orz/data/params.jld2") && rm("data/orz/data/params.jld2")
+    isfile("data/orz/data/00000/snapshot.jld2") && rm("data/orz/data/00000/snapshot.jld2")
+    isfile("data/orz/data/00000/patches.jld2") && rm("data/orz/data/00000/patches.jld2")
+    isfile("data/orz/data/00100/snapshot.jld2") && rm("data/orz/data/00100/snapshot.jld2")
+    isfile("data/orz/data/00100/patches.jld2") && rm("data/orz/data/00100/patches.jld2")
 
     snap0 = snapshot(0, data="data/orz/data")     # load first snapshot 
     rm("data/orz/data/params.jld")                # delete cached namelist 

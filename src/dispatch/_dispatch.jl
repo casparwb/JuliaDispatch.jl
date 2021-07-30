@@ -1,4 +1,4 @@
-using PyCall, Printf, Mmap, StaticArrays, JLD, Unitful, ProgressBars
+using PyCall, Printf, Mmap, StaticArrays, Unitful, ProgressBars, JLD2
 using FStrings
 
 using JuliaDispatch.Utils, JuliaDispatch.Select
@@ -133,38 +133,53 @@ function snapshot(iout=0; run="", data="../data", progress=true, suppress=false,
     ids = sort(collect(keys(patch_dict)))
     statedict["patches"] = Vector{Dict}(undef, length(ids)) # initialize array for storing patches
 
-    # if progress
-    #     Progress(x) = ProgressBar(x)
-    # else
-    #     Progress(x) = x
-    # end
-
+    cached_patches = isdir(_dir(datadir, "/cached_patches")) ? true : false
     Progress(x) = progress ? ProgressBar(x) : x
 
-    verbose == 1 && @info "Starting patch parsing"
-    Base.Threads.@threads for i in Progress(1:length(ids))
-        id = ids[i]
-        p = _patch2(parse(Int, id), patch_dict[id], statedict)
-        _add_axes(statedict, p)
-        statedict["patches"][i] = p
-        
-        if verbose == 2 && haskey(p, "idx")
-            data = p["var"]("d")
-            dmax = maximum(data)
-            println("id: $(p["id"])   pos: $(p["position"]) $dmax")
-        elseif verbose == 3
-            println("id: $(p["id"])")
-            for iv in range(p["nv"])
-                data = p["var"](iv)
-                vmin = parse(Float64, minimum(data))
-                vmax = parse(Float64, maximum(data))
-                var = p["idx"]["vars"][iv]
-                println(@sprintf("%d :  min = %10.3e    max = %10.3e", var, vmin, vmax))
-            end # do
-        elseif verbose == 4
-            attributes(p)
-        end # if
-    end # for
+    if true#!cached_patches
+        # patch_dir = _dir(datadir, "/cached_patches")
+        # mkdir(patch_dir)
+
+        verbose == 1 && @info "Initiating patch parsing"
+        Base.Threads.@threads for i in Progress(1:length(ids))
+            id = ids[i]
+            p = _patch2(parse(Int, id), patch_dict[id], statedict)
+            _add_axes(statedict, p)
+            statedict["patches"][i] = p
+            
+            if verbose == 2 && haskey(p, "idx")
+                data = p["var"]("d")
+                dmax = maximum(data)
+                println("id: $(p["id"])   pos: $(p["position"]) $dmax")
+            elseif verbose == 3
+                println("id: $(p["id"])")
+                for iv in range(p["nv"])
+                    data = p["var"](iv)
+                    vmin = parse(Float64, minimum(data))
+                    vmax = parse(Float64, maximum(data))
+                    var = p["idx"]["vars"][iv]
+                    println(@sprintf("%d :  min = %10.3e    max = %10.3e", var, vmin, vmax))
+                end # do
+            elseif verbose == 4
+                attributes(p)
+            end # if
+
+            # let p_copy = Base.copy(p)
+            #     p_copy["var"] = nothing
+            #     JLD2.save(patch_dir*"patch_$id.jld2", p_copy)
+            # end
+        end # for
+
+    # else
+    #     verbose == 1 && println("Reading cached patches")
+    #     patch_dir = _dir(datadir, "/cached_patches")
+    #     for id ∈ ProgressBar(1:length(ids))
+    #         patch = JLD2.load(patch_dir*"patch_$(ids[id]).jld2")
+    #         patch["var"] = _var(patch, patch["filename"], statedict)
+    #         statedict["patches"][id] = patch
+    #     end
+
+    end # if
 
     verbose == 1 && @info "Added $(length(statedict["patches"])) patches"
 
@@ -228,18 +243,18 @@ end
 Read a cached namelist file if it exists, else create it.
 """
 function read_nml(file; verbose=0)
-    jldfile = replace(file, ".nml" => ".jld")
+    jldfile = replace(file, ".nml" => ".jld2")
 
     if ispath(jldfile) && ctime(jldfile) > ctime(file)
         verbose > 0 && println("reading file $jldfile")
-        nml_list = JLD.load(jldfile)
+        nml_list = JLD2.load(jldfile)
     else
         verbose > 0 && println("reading file $file")
         f90nml(file) = pyimport("f90nml").read(file)
         nml_list = f90nml(file)
-        verbose > -1 && println("caching metadata to $jldfile")
+        verbose > -1 && @info ("caching metadata to $jldfile")
         try
-            JLD.save(jldfile, nml_list)
+            JLD2.save(jldfile, nml_list)
         catch
             nothing
         end # try
@@ -471,7 +486,7 @@ function _var(patch, filed, snap; verbose = 0, copy = nothing)
     bytes = Int64(4*prod(patch["ncell"]))
 
     shape = tuple(patch["ncell"]...)
-    patch["offset"] = []
+    patch["offset"] = Int[]
 
     # p["ip"] is the offset in the file; ranging from 0 to ntotal-1
     if "cartesian" in keys(snap)

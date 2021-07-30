@@ -1,14 +1,7 @@
 using Plots, LaTeXStrings, ProgressBars, Printf
-# using PyPlot: streamplot, imshow, figure
-#import Makie
-import WGLMakie
-using JuliaDispatch.Utils, JuliaDispatch.Buffers
-using JuliaDispatch.Select
-using JuliaDispatch.Dispatch: snapshot
+using JuliaDispatch.Utils, JuliaDispatch.Buffers, JuliaDispatch.Select, JuliaDispatch.Dispatch
 using Latexify, LaTeXStrings
-# using Unitful, Latexify, UnitfulRecipes, UnitfulLatexify
-WGLMakie.activate!()
-gr()
+
 default(:size, (800, 600))
 
 
@@ -386,159 +379,159 @@ end
 
 
 
-function volume(snap::Dict; iv = 0, unigrid=true, kw...)
-    kw = Dict{Symbol, Any}(kw)
-    if !haskey(kw, :linetype) 
-        kw[:linetype] = :heatmap 
-    end
+# function volume(snap::Dict; iv = 0, unigrid=true, kw...)
+#     kw = Dict{Symbol, Any}(kw)
+#     if !haskey(kw, :linetype) 
+#         kw[:linetype] = :heatmap 
+#     end
 
 
-    kv = Dict{Symbol, Any}(:verbose => 0, :iv => 0,
-                           :grids => false,
-                           :width => nothing, :dims => nothing,
-                           :center => nothing, :log =>  x -> x,
-                           :span => nothing)
+#     kv = Dict{Symbol, Any}(:verbose => 0, :iv => 0,
+#                            :grids => false,
+#                            :width => nothing, :dims => nothing,
+#                            :center => nothing, :log =>  x -> x,
+#                            :span => nothing)
 
 
-    _kw_extract(kw, kv)
-
-    
-    iv = kv[:iv]
-    verbose = kv[:verbose]
-
-    # get the axis where to slice and the resulting plane
-    xyz = [x, y, z]
-    dirs = [(x, "x", 1), (y, "y", 2), (z, "z", 3)]
-    axis = getindex(dirs, xyz .!= nothing)[1]   # axis at which we are slicing
-    planeDirs = getindex(dirs, xyz .== nothing) # axes of plane
-    ax1idx, ax2idx = planeDirs[1][3], planeDirs[2][3]
-    verbose == 1 && @info ("Sliceplot at $(axis[2]) = $(axis[1]) in plane $((planeDirs[1][2], planeDirs[2][2]))")
-    
-    origin = copy(snap["cartesian"]["origin"])
-    Size = copy(snap["cartesian"]["size"])
-    # # deleteat!(Size, axis[3])
-
-    # check if new width is given
-    wflag = false
-    if !isnothing(kv[:width])
-        width = kv[:width]
-        verbose == 1 && println("New width: $width")
-        wflag = true
-    else
-        width = [Size[ax1idx], Size[ax2idx]] / 2
-    end
-
-    # check if new center is given
-    cflag = false
-    if !isnothing(kv[:center])
-        center = kv[:center]
-        verbose == 1 && println("New center: $center")
-        cflag = true
-    else
-        center = origin .+ width
-    end
-
-    # realign data if new width or center is given
-    if wflag || cflag
-        span = ((center[1] - width[1], center[1] + width[1]), 
-                (center[2] - width[2], center[2] + width[2]), 
-                (center[3] - width[3], center[3] + width[3]))
-    elseif !isnothing(kv[:span]) 
-        span = kv[:span]
-    else 
-        span = nothing
-    end
+#     _kw_extract(kw, kv)
 
     
-    if unigrid && isnothing(kv[:dims])
-        data = unigrid_volume(snap, iv=iv, span=span, verbose=verbose)
-        verbose > 1 && @info ("Unigrid data with shape $(size(data))")
-        x = range(center[1]-width[1], center[1]+width[1], length=size(data, 2)) 
-        y = range(center[2]-width[2], center[2]+width[2], length=size(data, 1)) 
-        z = range(center[3]-width[3], center[3]+width[3], length=size(data, 3)) 
+#     iv = kv[:iv]
+#     verbose = kv[:verbose]
 
-    else
-
-        x, y, z, data = amr_volume(snap, iv=iv, span=span, dims=kv[:dims], verbose=verbose)
-        verbose > 1 && @info ("Mesh refined data with shape $(size(data))")
-    end
-
-    data = @. kv[:log](data)
-
-    # set colorbar title if not given as a keyword arguments
-    if !haskey(kw, :cbar_title)
-        try
-            cbar_title = latexify("$iv") # latexify only works with specific math equations
-        catch
-            cbar_title = L"%$iv" # produces a latexstring, which should work regardless
-        end
-    else
-        cbar_title = L"%$kw[:cbar_title]"
-    end
-
-    # set axis ticks (position, label)
-    xticks = range(1, stop=length(d1), step=round(Int, length(d1)/8))
-    xticks = (xticks |> collect, ceil.(d1[xticks], digits=1)) 
-    yticks = range(1, stop=length(d2), step=round(Int, length(d2)/8))
-    yticks = (yticks |> collect, ceil.(d2[yticks], digits=1))
-
-    if !haskey(kw, :aspect_ratio)
-        try
-            kw[:aspect_ratio] = size(data, 2)/size(data, 1)
-        catch
-            kw[:aspect_ratio] = 1.0
-        end
-    end
+#     # get the axis where to slice and the resulting plane
+#     xyz = [x, y, z]
+#     dirs = [(x, "x", 1), (y, "y", 2), (z, "z", 3)]
+#     axis = getindex(dirs, xyz .!= nothing)[1]   # axis at which we are slicing
+#     planeDirs = getindex(dirs, xyz .== nothing) # axes of plane
+#     ax1idx, ax2idx = planeDirs[1][3], planeDirs[2][3]
+#     verbose == 1 && @info ("Sliceplot at $(axis[2]) = $(axis[1]) in plane $((planeDirs[1][2], planeDirs[2][2]))")
     
-    hm = plot(data, xticks=xticks, yticks=yticks, cbar_title=cbar_title; kw...)
+#     origin = copy(snap["cartesian"]["origin"])
+#     Size = copy(snap["cartesian"]["size"])
+#     # # deleteat!(Size, axis[3])
 
-    # add grids
-    if kv[:grids]
-        i = axis[3]
-        patches = patches_in(snap, x=x, y=y, z=z)
+#     # check if new width is given
+#     wflag = false
+#     if !isnothing(kv[:width])
+#         width = kv[:width]
+#         verbose == 1 && println("New width: $width")
+#         wflag = true
+#     else
+#         width = [Size[ax1idx], Size[ax2idx]] / 2
+#     end
 
-        for p in patches
-            xidx = ax1idx
-            yidx = ax2idx
+#     # check if new center is given
+#     cflag = false
+#     if !isnothing(kv[:center])
+#         center = kv[:center]
+#         verbose == 1 && println("New center: $center")
+#         cflag = true
+#     else
+#         center = origin .+ width
+#     end
 
-            e = p["extent"][i,:]
-
-            x = abs.([e[1], e[2], e[2], e[2], e[2], e[1], e[1], e[1]] ./ Size[xidx] .* size(data, 2))
-            y = abs.([e[3], e[3], e[3], e[4], e[4], e[4], e[4], e[3]] ./ Size[yidx] .* size(data, 1))
-
-            if i !== 2
-                plot!(hm, x, y, color=:gray, label=false)
-            else
-                plot!(hm, y, x, color=:gray, label=false)
-            end
-        end
-    end
+#     # realign data if new width or center is given
+#     if wflag || cflag
+#         span = ((center[1] - width[1], center[1] + width[1]), 
+#                 (center[2] - width[2], center[2] + width[2]), 
+#                 (center[3] - width[3], center[3] + width[3]))
+#     elseif !isnothing(kv[:span]) 
+#         span = kv[:span]
+#     else 
+#         span = nothing
+#     end
 
     
-    # set labels and title if not given as a keyword argument
-    if !haskey(kw, :xlabel)
-        xlabel = planeDirs[1][2]
-        xlabel!(hm, xlabel)
-    end
+#     if unigrid && isnothing(kv[:dims])
+#         data = unigrid_volume(snap, iv=iv, span=span, verbose=verbose)
+#         verbose > 1 && @info ("Unigrid data with shape $(size(data))")
+#         x = range(center[1]-width[1], center[1]+width[1], length=size(data, 2)) 
+#         y = range(center[2]-width[2], center[2]+width[2], length=size(data, 1)) 
+#         z = range(center[3]-width[3], center[3]+width[3], length=size(data, 3)) 
 
-    if !haskey(kw, :ylabel)
-        ylabel = planeDirs[2][2]
-        ylabel!(hm, ylabel)
-    end
+#     else
 
-    if !haskey(kw, :title)
-        pos = (axis[2], axis[1])
-        time = round(snap["time"], digits=2)
-        try
-            title!(latexify("$(pos[1]) = $(pos[2]), t = $time"))
-        catch
-            title!(L"$(pos[1]) = $(pos[2]), t = $time")
-        end
-    end
+#         x, y, z, data = amr_volume(snap, iv=iv, span=span, dims=kv[:dims], verbose=verbose)
+#         verbose > 1 && @info ("Mesh refined data with shape $(size(data))")
+#     end
+
+#     data = @. kv[:log](data)
+
+#     # set colorbar title if not given as a keyword arguments
+#     if !haskey(kw, :cbar_title)
+#         try
+#             cbar_title = latexify("$iv") # latexify only works with specific math equations
+#         catch
+#             cbar_title = L"%$iv" # produces a latexstring, which should work regardless
+#         end
+#     else
+#         cbar_title = L"%$kw[:cbar_title]"
+#     end
+
+#     # set axis ticks (position, label)
+#     xticks = range(1, stop=length(d1), step=round(Int, length(d1)/8))
+#     xticks = (xticks |> collect, ceil.(d1[xticks], digits=1)) 
+#     yticks = range(1, stop=length(d2), step=round(Int, length(d2)/8))
+#     yticks = (yticks |> collect, ceil.(d2[yticks], digits=1))
+
+#     if !haskey(kw, :aspect_ratio)
+#         try
+#             kw[:aspect_ratio] = size(data, 2)/size(data, 1)
+#         catch
+#             kw[:aspect_ratio] = 1.0
+#         end
+#     end
+    
+#     hm = plot(data, xticks=xticks, yticks=yticks, cbar_title=cbar_title; kw...)
+
+#     # add grids
+#     if kv[:grids]
+#         i = axis[3]
+#         patches = patches_in(snap, x=x, y=y, z=z)
+
+#         for p in patches
+#             xidx = ax1idx
+#             yidx = ax2idx
+
+#             e = p["extent"][i,:]
+
+#             x = abs.([e[1], e[2], e[2], e[2], e[2], e[1], e[1], e[1]] ./ Size[xidx] .* size(data, 2))
+#             y = abs.([e[3], e[3], e[3], e[4], e[4], e[4], e[4], e[3]] ./ Size[yidx] .* size(data, 1))
+
+#             if i !== 2
+#                 plot!(hm, x, y, color=:gray, label=false)
+#             else
+#                 plot!(hm, y, x, color=:gray, label=false)
+#             end
+#         end
+#     end
+
+    
+#     # set labels and title if not given as a keyword argument
+#     if !haskey(kw, :xlabel)
+#         xlabel = planeDirs[1][2]
+#         xlabel!(hm, xlabel)
+#     end
+
+#     if !haskey(kw, :ylabel)
+#         ylabel = planeDirs[2][2]
+#         ylabel!(hm, ylabel)
+#     end
+
+#     if !haskey(kw, :title)
+#         pos = (axis[2], axis[1])
+#         time = round(snap["time"], digits=2)
+#         try
+#             title!(latexify("$(pos[1]) = $(pos[2]), t = $time"))
+#         catch
+#             title!(L"$(pos[1]) = $(pos[2]), t = $time")
+#         end
+#     end
 
 
-    return hm
-end
+#     return hm
+# end
 
 """
     anim_plane(;data="../data", run="", x = nothing, y = nothing, z = nothing, iv=0, 

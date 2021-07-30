@@ -42,7 +42,7 @@ function evaluate_expression(patch, expr; all=false, verbose = 0)
             end
         end
     catch e
-        println("Unable to parse expression $parsed.")
+        @error "Unable to parse expression $parsed."
         return nothing
     end
 

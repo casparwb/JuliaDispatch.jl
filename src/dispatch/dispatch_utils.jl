@@ -1,6 +1,6 @@
 
 using Printf
-using JLD
+using JLD2
 using JuliaDispatch.Utils
 
 
@@ -19,11 +19,11 @@ function read_patch_metadata(io = 0, run = "", data="../data", n_rank = 0; verbo
     end # if
 
     patches = Dict()
-    file0 = rundir*@sprintf("%05d", io)*"/patches.jld"
+    file0 = rundir*@sprintf("%05d", io)*"/patches.jld2"
     file1 = rundir*@sprintf("%05d", io)*"/rank_00000_patches.nml"
     if ispath(file0) && ctime(file0) > ctime(file1)
-        patches = JLD.load(file0)
-        verbose > 0 && println("$file0, $(length(keys(patches))), patches")
+        patches = JLD2.load(file0)
+        verbose > 0 && @info "$file0, $(length(keys(patches))) patches"
     else
         verbose > 0 && println("Caching metadata to $file0")
 
@@ -36,14 +36,14 @@ function read_patch_metadata(io = 0, run = "", data="../data", n_rank = 0; verbo
         end # while
 
         try
-            JLD.save(file0, patches)
+            JLD2.save(file0, patches)
         catch e
             throw(e)
         end # try
     end # if
 
     np = length(keys(patches))
-    verbose > 0 && println("$n_rank ranks, $np patches")
+    verbose > 0 && @info "$n_rank rank(s), $np patches"
 
     if iszero(np)
         println("no files found")

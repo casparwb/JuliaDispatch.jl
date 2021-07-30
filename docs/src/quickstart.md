@@ -11,10 +11,7 @@ Open your Julia REPL terminal and type ']' to enter the package manager, followe
 
 ```julia
 pkg> add "https://github.com/casparwb/JuliaDispatch.jl"
-pkg> add JLD
 ```
-
-`JLD` is a package used by `JuliaDispatch` to cache and read cached namelists. This needs to be in your workspace in order for it work, thus it is important that it is imported before `JuliaDispatch`.
 
 After having installed the packages, exit the package manager with backspace, and type
 
@@ -111,7 +108,7 @@ using JuliaDispatch.Dispatch
 data = "../test/data/orz/data" # hide
 snap = snapshot(100, data=data) # data is a string variable pointing to the folder containing the snapshots
 println("Snapshot time: $(snap["time"])") # get the time the snapshot was taken
-println("Number of patches = $(length(snap["patches"]))) # print the number of patches
+println("Number of patches = $(length(snap["patches"]))") # print the number of patches
 ```
 
 ### Extracting Interpolated Data

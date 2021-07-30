@@ -105,13 +105,17 @@ function get_new_snapshot(current_snap; data="data/", run="", sleeptime=10, maxs
         snaps = get_snapshot_ids(data=data, run=run)
         new = findall(snaps .> current_snap)
         if !isempty(new)
-            println("Parsing snapshot $current_snap")
             current_snap = snaps[new[1]]
-            if !isnothing(npatches)
-                while get_n_patches(current_snap, data=data, run=run) != npatches
-                    sleep(1)
-                end
-            end                
+            println("Parsing snapshot $current_snap")
+            sleep(5)
+            # if !isnothing(npatches)
+            #     current_n_patches = get_n_patches(current_snap, data=data, run=run)
+            #     println(current_n_patches)
+            #     iszero(current_n_patches) && return nothing
+            #     while current_n_patches != npatches
+            #         sleep(1)
+            #     end
+            # end                
 
             return current_snap#snapshot(current_snap, data=data, run=run, progress=false, suppress=true)
         else

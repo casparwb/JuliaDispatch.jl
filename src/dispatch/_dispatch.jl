@@ -53,7 +53,7 @@ function snapshot(iout=0; run="", data="../data", progress=true, suppress=false,
     file = _file(rundir, "params.nml")
 
     #params_list = read_nml(file)
-    statedict["params_list"] = read_nml(file)
+    statedict["params_list"] = read_nml(file, verbose=verbose, suppress=suppress)
     _add_nml_list_to(statedict, statedict["params_list"], suppress=suppress)
 
     ### finding snapshot files ###
@@ -68,7 +68,7 @@ function snapshot(iout=0; run="", data="../data", progress=true, suppress=false,
     # file_dict = []
     @inbounds for f in files
         file = _file(datadir, f)
-        nml_list = read_nml(file)
+        nml_list = read_nml(file, verbose=verbose, suppress=suppress)
         statedict["nml_list"] = nml_list
         _add_nml_list_to(statedict, nml_list)
 
@@ -126,7 +126,7 @@ function snapshot(iout=0; run="", data="../data", progress=true, suppress=false,
     patch_dict = read_patch_metadata(iout, run, data, statedict["mpi_size"], verbose=verbose)
 
     if isnothing(patch_dict)
-        throw(ErrorException("could not find patch metadata"))
+        @error "Could not find patch metadata"
         return nothing
     end
 
@@ -136,16 +136,22 @@ function snapshot(iout=0; run="", data="../data", progress=true, suppress=false,
     cached_patches = isdir(_dir(datadir, "/cached_patches")) ? true : false
     Progress(x) = progress ? ProgressBar(x) : x
 
+    datashape = [0, 0, 0]
+
     if true#!cached_patches
         # patch_dir = _dir(datadir, "/cached_patches")
         # mkdir(patch_dir)
 
         verbose == 1 && @info "Initiating patch parsing"
-        Base.Threads.@threads for i in Progress(1:length(ids))
+        Base.Threads.@threads for i in Progress(eachindex(ids))
             id = ids[i]
             p = _patch2(parse(Int, id), patch_dict[id], statedict)
             _add_axes(statedict, p)
             statedict["patches"][i] = p
+
+            datashape[1] = max(datashape[1], p["corner_indices"][3,2])
+            datashape[2] = max(datashape[2], p["corner_indices"][3,4])
+            datashape[3] = max(datashape[3], p["corner_indices"][1,4])
             
             if verbose == 2 && haskey(p, "idx")
                 data = p["var"]("d")
@@ -180,6 +186,10 @@ function snapshot(iout=0; run="", data="../data", progress=true, suppress=false,
     #     end
 
     end # if
+
+    statedict["datashape"] = datashape
+
+
 
     verbose == 1 && @info "Added $(length(statedict["patches"])) patches"
 
@@ -242,7 +252,7 @@ end
 
 Read a cached namelist file if it exists, else create it.
 """
-function read_nml(file; verbose=0)
+function read_nml(file; verbose=0, suppress=false)
     jldfile = replace(file, ".nml" => ".jld2")
 
     if ispath(jldfile) && ctime(jldfile) > ctime(file)
@@ -252,7 +262,7 @@ function read_nml(file; verbose=0)
         verbose > 0 && println("reading file $file")
         f90nml(file) = pyimport("f90nml").read(file)
         nml_list = f90nml(file)
-        verbose > -1 && @info ("caching metadata to $jldfile")
+        verbose > -1 && !suppress && @info "caching metadata to $jldfile"
         try
             JLD2.save(jldfile, nml_list)
         catch
@@ -469,12 +479,12 @@ function _patch2(id, patch_dict, snap; memmap=1, verbose=0)
     end
     patch["all_keys"] = all
 
-    # # add patch indices
-    # try
-    #     patch["corner_indices"] = corner_indices(snap, patch)
-    # catch
-    #     nothing
-    # end
+    # add patch indices
+    try
+        patch["corner_indices"] = corner_indices_all(snap, patch)
+    catch
+        nothing
+    end
 
     return patch
 end # function

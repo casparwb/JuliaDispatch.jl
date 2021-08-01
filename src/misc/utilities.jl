@@ -34,7 +34,7 @@ function get_n_snapshots(;run="", data="../data")
     nsnaps = 0
     for dir in readdir(datadir)
         if isdir(datadir*dir)
-            if "snapshot.nml" in readdir(datadir*dir)
+            if "snapshot.nml" in readdir(datadir*dir) && !isempty(datadir*dir)
                 nsnaps += 1
             end
         end

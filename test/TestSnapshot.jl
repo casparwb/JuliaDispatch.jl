@@ -1,18 +1,18 @@
 module TestSnapshot
 
     using JuliaDispatch.Dispatch
-    using PyCall, Test, JLD2
+    using PyCall, Test
     
     # something is wrong with reading cached namelists, so they are deleted if they exist
-    isfile("data/orz/data/params.jld2") && rm("data/orz/data/params.jld2")
-    isfile("data/orz/data/00000/snapshot.jld2") && rm("data/orz/data/00000/snapshot.jld2")
-    isfile("data/orz/data/00000/patches.jld2") && rm("data/orz/data/00000/patches.jld2")
-    isfile("data/orz/data/00100/snapshot.jld2") && rm("data/orz/data/00100/snapshot.jld2")
-    isfile("data/orz/data/00100/patches.jld2") && rm("data/orz/data/00100/patches.jld2")
+    # isfile("data/orz/data/params.jld2") && rm("data/orz/data/params.jld2")
+    # isfile("data/orz/data/00000/snapshot.jld2") && rm("data/orz/data/00000/snapshot.jld2")
+    # isfile("data/orz/data/00000/patches.jld2") && rm("data/orz/data/00000/patches.jld2")
+    # isfile("data/orz/data/00100/snapshot.jld2") && rm("data/orz/data/00100/snapshot.jld2")
+    # isfile("data/orz/data/00100/patches.jld2") && rm("data/orz/data/00100/patches.jld2")
 
-    snap0 = snapshot(0, data="data/orz/data")     # load first snapshot 
-    rm("data/orz/data/params.jld")                # delete cached namelist 
-    snap100 = snapshot(100, data="data/orz/data") # load 100th snapshot
+    snap0 = snapshot(0, data="data/orz/data", suppress=true, progress=false)     # load first snapshot 
+    # rm("data/orz/data/params.jld")                # delete cached namelist 
+    snap100 = snapshot(100, data="data/orz/data", suppress=true, progress=false) # load 100th snapshot
     
     # import the data from the Python analysis
     np = pyimport("numpy")
@@ -21,8 +21,14 @@ module TestSnapshot
 
     # test that snapshots from both languages have the same properties (keys) 
     @testset "Snapshot keys $key0" for (key0, key100) in zip(collect(snap0data["keys"]), collect(snap100data["keys"]))
-            @test key0 in keys(snap0)
-            @test key100 in keys(snap100)
+            if key0 in keys(snap0)
+                @test snap0data[key0] == snap0[key0]
+            end
+
+            if key100 in keys(snap100)
+                @test snap100data[key100] == snap100[key100]
+            end
+
     end
 
     # test that the number of patches is the same
@@ -43,11 +49,16 @@ module TestSnapshot
             patch0 = findall(x -> x["id"] == patchID, snap0["patches"])[1]
             patch100 = findall(x -> x["id"] == patchID, snap100["patches"])[1]
             @testset "iv $iv" for iv in ivs
-                iv_python_0 = snap0data[patch][iv]
-                iv_python_100 = snap100data[patch][iv]
+                iv_python_0 = snap0data[patch][iv] |> copy
+                iv_python_100 = snap100data[patch][iv] |> copy
 
-                iv_julia_0 = snap0["patches"][patch0]["var"](iv)
-                iv_julia_100 = snap100["patches"][patch100]["var"](iv)
+                iv_julia_0 = snap0["patches"][patch0]["var"](iv) |> copy
+                iv_julia_100 = snap100["patches"][patch100]["var"](iv) |> copy
+
+                replace!(iv_python_0, NaN => 0.0)
+                replace!(iv_python_100, NaN => 0.0)
+                replace!(iv_julia_0, NaN => 0.0)
+                replace!(iv_julia_0, NaN => 0.0)
                 
                 @testset "Snapshot 0" begin
                     @test iv_python_0 ≈ iv_julia_0
@@ -78,8 +89,11 @@ module TestSnapshot
         @test patch100_j["aux"]["version"] == convert(Int, patch100_p["aux"]["version"])
 
         @testset "aux var $var" for var in keys(patch100_p["aux"]["vars"])
-            auxvar_j = patch100_j["aux"]["vars"][var]
-            auxvar_p = patch100_p["aux"]["vars"][var]
+            auxvar_j = patch100_j["aux"]["vars"][var] |> copy
+            auxvar_p = patch100_p["aux"]["vars"][var] |> copy
+
+            replace!(auxvar_j, NaN => 0.0)
+            replace!(auxvar_p, NaN => 0.0)
             
             @test auxvar_j["rank"] == auxvar_p["rank"]
             @test auxvar_j["name"] == auxvar_p["name"]

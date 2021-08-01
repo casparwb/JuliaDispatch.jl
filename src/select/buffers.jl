@@ -175,7 +175,7 @@ function amr_plane(snap; iv = 0, x = nothing, y = nothing, z = nothing,
             data = plane(patch, x = x, y = y, z = z, iv=iv, all=false)
             itp = LinearInterpolation((LinRange(axis1extent[1], axis1extent[2], size(data, 1)), 
                                        LinRange(axis2extent[1], axis2extent[2], size(data, 2))), 
-                                       data, extrapolation_bc=Line())
+                                       data, extrapolation_bc=Throw())
 
             for i2 ∈ axis2_indices, i1 ∈ axis1_indices
                 buffer[iv][i2, i1] = itp(axis1[i1], axis2[i2])#interp(itp, axis1[i1], axis2[i2]) # interpolate and insert into buffer
@@ -307,17 +307,19 @@ function unigrid_plane(snap::Dict; x = nothing, y = nothing, z = nothing,
     verbose == 2 && println("number of patches: $(length(patches))")
 
     n1, n2 = 0, 0
-    patchDict = Dict{Int, Tuple{NTuple{4,Int64}, Dict}}()
-    for p in patches
+    # patchDict = Dict{Int, Tuple{NTuple{4,Int64}, Dict}}()
+    # for p in patches
 
-        idxs = corner_indices(snap, p, dir=ax)
+        # idxs = corner_indices(snap, p, dir=ax)
 
-        n1 = max(n1, idxs[2])
-        n2 = max(n2, idxs[4])
+        # n1 = max(n1, idxs[2])
+        # n2 = max(n2, idxs[4])
 
-        patchDict[p["id"]] = (idxs, p)
-    end
-    datashp = [n1, n2]
+        # patchDict[p["id"]] = (idxs, p)
+    # end
+    # datashp = [n1, n2]
+    datashp = copy(snap["datashape"])
+    deleteat!(datashp, ax)
 
     verbose == 2 && println("data shape: $datashp") 
 
@@ -330,9 +332,11 @@ function unigrid_plane(snap::Dict; x = nothing, y = nothing, z = nothing,
 
     buffer = init_buffer(snap, iv, datashp, 2)
     for iv in keys(buffer)
-        patchkeys = keys(patchDict) |> collect
-        Base.Threads.@threads for key in patchkeys
-            idxs, patch = patchDict[key]
+        # patchkeys = keys(patchDict) |> collect
+        # Base.Threads.@threads for key in patchkeys
+        Base.Threads.@threads for patch ∈ patches
+            # idxs, patch = patchDict[key]
+            idxs = patch["corner_indices"][ax,:]
             im = plane(patch, x = x, y = y, z = z, iv = iv, all=all)
             buffer[iv][idxs[3]:idxs[4], idxs[1]:idxs[2]] = im'
         end
@@ -369,24 +373,25 @@ function unigrid_volume(snap; iv = 0, span=nothing, all=false, verbose=0)
     patches = snap["patches"]
 
     
-    patchDict = Dict{Int, Tuple{NTuple{6, Int64}, Dict}}()
+    # patchDict = Dict{Int, Tuple{NTuple{6, Int64}, Dict}}()
 
-    nx, ny, nz = 0, 0, 0
-    for p in patches
-        idxs = corner_indices_all(snap, p)
+    # nx, ny, nz = 0, 0, 0
+    # for p in patches
+    #     idxs = corner_indices_alll(snap, p)
 
-        nx = max(idxs[2], nx)
-        ny = max(idxs[4], ny)
-        nz = max(idxs[6], nz)
+    #     nx = max(idxs[2], nx)
+    #     ny = max(idxs[4], ny)
+    #     nz = max(idxs[6], nz)
 
-        # idxs = tuple(idxs_xy..., idxs_z...)
-        patchDict[p["id"]] = (idxs, p)
-    end
-
+    #     # idxs = tuple(idxs_xy..., idxs_z...)
+    #     patchDict[p["id"]] = (idxs, p)
+    # end
+    
+    datashp = snap["datashape"]
     if !isnothing(span)
         span = (span[1] .* 1.0, span[2] .* 1.0, span[3] .* 1.0) # convert to float
         snapshot_span = [(snap["cartesian"]["origin"][i], snap["cartesian"]["origin"][i] + snap["cartesian"]["size"][i]) for i = 1:3]
-
+    
         # check if given span extends beyond boundary and if corresponding axis is periodic
         x_span, y_span, z_span = span
         if ((snapshot_span[1][1] > x_span[1]) || (snapshot_span[1][2] < x_span[2]))    
@@ -394,56 +399,61 @@ function unigrid_volume(snap; iv = 0, span=nothing, all=false, verbose=0)
             return amr_volume(snap, iv=iv, verbose = verbose, all = all, span = span, dims=(nx, ny, nz))
             # iszero(snap["periodic"][1]) && throw(ArgumentError("axis x is not periodic"))
         end
-
+    
         if ((snapshot_span[2][1] > y_span[1]) || (snapshot_span[2][2] < y_span[2]))
             @warn "unigrid_volume does not yet support spans beyond a periodic boundary. Calling amr_volume."
             return amr_volume(snap, iv=iv, verbose = verbose, all = all, span = span, dims=(nx, ny, nz))
             # iszero(snap["periodic"][2]) && throw(ArgumentError("axis y is not periodic"))
         end
-
+    
         if ((snapshot_span[3][1] > z_span[1]) || (snapshot_span[3][2] < z_span[2]))
             @warn "unigrid_volume does not yet support spans beyond a periodic boundary. Calling amr_volume."
             return amr_plane(snap, iv=iv, verbose = verbose, all = all, span = span, dims=(nx, ny, nz))
             # iszero(snap["periodic"][3]) && throw(ArgumentError("axis z is not periodic"))
         end
-
+    
         max_ids = [1, 1, 1]
-        min_ids = [nx, ny, nz]
-
-        for patch in patches_in(snap, span)
-            idxs = corner_indices_all(snap, patch)
-
-            max_ids[1] = max(max_ids[1], idxs[2])
-            max_ids[2] = max(max_ids[2], idxs[4])
-            max_ids[3] = max(max_ids[3], idxs[6])
-
-            min_ids[1] = min(min_ids[1], idxs[1])
-            min_ids[2] = min(min_ids[2], idxs[3])
-            min_ids[3] = min(min_ids[3], idxs[5])
+        min_ids = copy(datashp)
+    
+        for patch in patches
+            idxs = patch["corner_indices"]
+            
+            max_ids[1] = max(max_ids[1], idxs[3,2])
+            max_ids[2] = max(max_ids[2], idxs[3,4])
+            max_ids[3] = max(max_ids[3], idxs[1,4])
+    
+            min_ids[1] = min(min_ids[1], idxs[1,1])
+            min_ids[2] = min(min_ids[2], idxs[3,3])
+            min_ids[3] = min(min_ids[3], idxs[1,3])
         end
-
+    
     else
-        max_ids = [nx, ny, nz]
+        max_ids = copy(datashp)
         min_ids = [1, 1, 1]
-
+        
     end
-
-    datashp = (nx, ny, nz)
+    
     buffer = init_buffer(snap, iv, datashp, 3)
     verbose == 1 && println("volume shape $datashp")
 
     for iv in keys(buffer)
-        # ids = keys(patchDict)
-        Base.Threads.@threads for id in keys(patchDict)
-            idxs, patch = patchDict[id]
+        # ids = keys(patchDict) |> collect
+        # Base.Threads.@threads for id in ids
+        Base.Threads.@threads for patch ∈ patches
+            # idxs, patch = patchDict[id]
+            idxs = patch["corner_indices"]
             data = box(patch, iv=iv, all=all, verbose=verbose)
 
-            buffer[iv][idxs[1]:idxs[2],
-                       idxs[3]:idxs[4],
-                       idxs[5]:idxs[6]] = data
+            buffer[iv][idxs[3,1]:idxs[3,2],
+                       idxs[3,3]:idxs[3,4],
+                       idxs[1,3]:idxs[1,4]] = data
+
+            # buffer[iv][idxs[1]:idxs[2],
+            #            idxs[3]:idxs[4],
+            #            idxs[5]:idxs[6]] = data
 
         end
-        buffer[iv] = buffer[min_ids[2]:max_ids[2], min_ids[1]:max_ids[1], min_ids[3]:max_ids[3]]
+        buffer[iv] = buffer[iv][min_ids[2]:max_ids[2], min_ids[1]:max_ids[1], min_ids[3]:max_ids[3]]
     end
 
     if length(keys(buffer)) == 1

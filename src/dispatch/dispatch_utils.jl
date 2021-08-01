@@ -10,7 +10,7 @@ using JuliaDispatch.Utils
 
 Read patch metadata from Fortran unformatted file
 """
-function read_patch_metadata(io = 0, run = "", data="../data", n_rank = 0; verbose = 0)
+function read_patch_metadata(io = 0, run = "", data="../data", n_rank = 0; verbose = 0, suppress=false)
     rundir = _dir(data, run)
     if iszero(n_rank)
         dir = rundir*@sprintf("%05d", io)
@@ -25,7 +25,7 @@ function read_patch_metadata(io = 0, run = "", data="../data", n_rank = 0; verbo
         patches = JLD2.load(file0)
         verbose > 0 && @info "$file0, $(length(keys(patches))) patches"
     else
-        verbose > 0 && println("Caching metadata to $file0")
+        verbose > 0 && @info "Caching metadata to $file0"
 
         rank = 0
         while rank < n_rank

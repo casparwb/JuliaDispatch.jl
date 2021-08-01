@@ -321,7 +321,28 @@ function corner_indices_all(snap, patch)
     #     return i[1]+1, i[1]+n[1], i[2]+1, i[2]+n[2]
     # else
     # end
+    # return i[1]+1, i[1]+n[1], i[2]+1, i[2]+n[2], i[3]+1, i[3]+n[3]
+    return SMatrix{3, 4}(i[2]+1,    i[1]+1,    i[1]+1, 
+                         i[2]+n[2], i[1]+n[1], i[1]+n[1],
+                         i[3]+1,    i[3]+1,    i[2]+1, 
+                         i[3]+n[3], i[3]+n[3], i[2]+n[2])
+end
+
+function corner_indices_alll(snap, patch)
+
+
+    i = (patch["position"] .- patch["size"]/2 .- snap["cartesian"]["origin"])./patch["ds"]
+    i = [Int(round(k + 0.5)) for k in i]
+    n = patch["n"][:]
+
+    # if dir >= 1 && dir < 4
+    #     deleteat!(i, dir)
+    #     deleteat!(n, dir)
+    #     return i[1]+1, i[1]+n[1], i[2]+1, i[2]+n[2]
+    # else
+    # end
     return i[1]+1, i[1]+n[1], i[2]+1, i[2]+n[2], i[3]+1, i[3]+n[3]
+
 end
 
 

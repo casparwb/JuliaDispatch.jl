@@ -1,4 +1,4 @@
-using FortranFiles
+using FortranFiles, Printf, Mmap
 
 function aux(;id = 1, io = 0, rundir = "", datadir = "../data", file=nothing,
     verbose = 0)
@@ -23,6 +23,7 @@ function aux_read!(auxDict; verbose=0)
     auxDict["version"], auxDict["id"] = read(file, (Int32, 2))
 
     vars = Dict()
+    pos = 1
     while true
         try
             name = String(read(file, FString{2}))
@@ -32,12 +33,14 @@ function aux_read!(auxDict; verbose=0)
             rnk = read(file, Int32)
 
             verbose > 2 && println(" rank: $rnk")
+
             shp = read(file, (Int32, rnk))
 
             verbose > 2 && println(" shape: $shp")
 
             rank = length(shp)
             len = prod(shp)
+
             tpe = String(read(file, FString{2}))
 
             rank = length(shp)
@@ -45,15 +48,16 @@ function aux_read!(auxDict; verbose=0)
             verbose > 2 && println("type: $tpe")
 
             if startswith(tpe, "r")
-                v = read(file, (Float32, len))
+                read(file, (Float32, len))
             else
-                v = read(file, (Int32, len))
+                read(file, (Int32, len))
             end
         
             v = reshape(v, Int.(shp)...)
 
             vars[name] = Dict("type" => tpe, "name" => name, "rank" => rank,
-                                "shape" => shp, "v" => v)
+                                "shape" => shp, "v" => nothing, "pos" => pos)
+            pos += 1
         catch e
             break
         end
@@ -61,4 +65,25 @@ function aux_read!(auxDict; verbose=0)
     end
     FortranFiles.close(file)
     auxDict["vars"] = vars
+end
+
+function aux_mem(name, patch)
+
+    var = patch["aux"]["vars"][name]
+    pos = var["pos"]
+    shape = var["shape"]
+    tpe = startswith(var["type"], "r") ? Float32 : Int32
+    # data = Array{tpe, length(shape)}(undef, shape...)
+
+    file = FortranFile(patch["aux"]["filename"])
+
+    for i = 1:pos*5
+        read(file)
+    end
+
+    data = read(file, (tpe, prod(shape)))
+    close(file)
+
+    data = reshape(data, Int.(shape)...)
+    return data
 end

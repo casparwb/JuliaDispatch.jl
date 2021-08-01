@@ -187,6 +187,8 @@ function snapshot(iout=0; run="", data="../data", progress=true, suppress=false,
 
     end # if
 
+    datashape[1] = maximum([patch["corner_indices"][3, 2] for patch in statedict["patches"]])
+
     statedict["datashape"] = datashape
 
 
@@ -732,7 +734,8 @@ function _var(patch, filed, snap; verbose = 0, copy = nothing)
 
         # or an aux item
         elseif haskey(patch["aux"]["vars"], iv)
-            v = patch["aux"]["vars"][iv]["v"]
+            # v = patch["aux"]["vars"][iv]["v"]
+            v = aux_mem(iv, patch)
             verbose == 1 && println("$iv in keys $(size(v))")
 
         # or a numeric index

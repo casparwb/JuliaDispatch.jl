@@ -53,7 +53,7 @@ function aux_read!(auxDict; verbose=0)
                 read(file, (Int32, len))
             end
         
-            v = reshape(v, Int.(shp)...)
+            # v = reshape(v, Int.(shp)...)
 
             vars[name] = Dict("type" => tpe, "name" => name, "rank" => rank,
                                 "shape" => shp, "v" => nothing, "pos" => pos)

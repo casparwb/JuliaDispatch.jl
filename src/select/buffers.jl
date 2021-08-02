@@ -88,6 +88,7 @@ function amr_plane(snap; iv = 0, x = nothing, y = nothing, z = nothing,
         n1, n2  = dims
     end
 
+
     patches = patches_in(snap, x=x, y=y, z=z)
     if length(patches) == 0
       throw(ErrorException(" no patches found in [$x, $y, $z]"))
@@ -326,16 +327,13 @@ function unigrid_plane(snap::Dict; x = nothing, y = nothing, z = nothing,
     if !isnothing(span)
         span = (span[1] .* 1.0, span[2] .* 1.0)
         @warn "unigrid_plane does not yet support spans beyond a periodic boundary. Calling amr_plane."
-        return amr_plane(snap, iv=iv, x = x, y = y, z = z, verbose = verbose, all = all, span = span, dims=(n1, n2))
+        return amr_plane(snap, iv=iv, x = x, y = y, z = z, verbose = verbose, all = all, span = span, dims=tuple(datashp...))
     end
 
 
     buffer = init_buffer(snap, iv, datashp, 2)
     for iv in keys(buffer)
-        # patchkeys = keys(patchDict) |> collect
-        # Base.Threads.@threads for key in patchkeys
         Base.Threads.@threads for patch ∈ patches
-            # idxs, patch = patchDict[key]
             idxs = patch["corner_indices"][ax,:]
             im = plane(patch, x = x, y = y, z = z, iv = iv, all=all)
             buffer[iv][idxs[3]:idxs[4], idxs[1]:idxs[2]] = im'

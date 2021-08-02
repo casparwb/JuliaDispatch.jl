@@ -99,7 +99,7 @@ end
 Return snapshot id with `ID = current_snap + 1`. Will wait for new snapshots as they are being produced. 
 If program waits for more than `maxsleep` seconds without finding a new snapshot, the program will exit.
 """
-function get_new_snapshot(current_snap; data="data/", run="", sleeptime=10, maxsleep=100, npatches=nothing)
+function get_new_snapshot(current_snap; data="data/", run="", sleeptime=10, maxsleep=100)
     total_slept = 0
     while true
         snaps = get_snapshot_ids(data=data, run=run)
@@ -107,15 +107,9 @@ function get_new_snapshot(current_snap; data="data/", run="", sleeptime=10, maxs
         if !isempty(new)
             current_snap = snaps[new[1]]
             println("Parsing snapshot $current_snap")
-            sleep(5)
-            # if !isnothing(npatches)
-            #     current_n_patches = get_n_patches(current_snap, data=data, run=run)
-            #     println(current_n_patches)
-            #     iszero(current_n_patches) && return nothing
-            #     while current_n_patches != npatches
-            #         sleep(1)
-            #     end
-            # end                
+            if (time() - ctime(_dir(data, run)*@sprintf("%05d", current_snap)*"/snapshot.nml")) < 3
+                sleep(3)
+            end             
 
             return current_snap#snapshot(current_snap, data=data, run=run, progress=false, suppress=true)
         else
@@ -141,4 +135,15 @@ Return the number of patches in the given snapshot `iout` in the `data/run`-dire
 function get_n_patches(iout; data="data", run="")
     snapdir = _dir(data, run)*@sprintf("%05d", iout)
     return length([dir for dir in readdir(snapdir) if endswith(dir, ".dat")])
+end
+
+
+
+function purge_cached_namelists(iout, ;data="data/", run="")
+    rundir = _dir(data, run)*@sprintf("%05d/", iout)
+    for entry ∈ readdir(rundir)
+        if endswith(entry, ".jld2")
+            rm(rundir*entry)
+        end
+    end
 end

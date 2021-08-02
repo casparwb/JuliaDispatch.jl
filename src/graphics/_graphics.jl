@@ -192,13 +192,13 @@ function sliceplot(snap::Dict,
     end
 
     
-    if unigrid && isnothing(kv[:dims])
+    if unigrid && isnothing(kv[:dims]) && isnothing(span)
         data = unigrid_plane(snap, iv=iv, x = x, y = y, z = z, span=span, verbose = verbose > 4 ? 1 : 0)
         verbose > 1 && @info ("Unigrid data with shape $(size(data))")
         d1 = range(center[1]-width[1], center[1]+width[1], length=size(data, 2)) # dimension 1
         d2 = range(center[2]-width[2], center[2]+width[2], length=size(data, 1)) # dimension 2
     else
-
+        isnothing(kv[:dims]) ? kv[:dims] = (snap["datashape"][ax1idx], snap["datashape"][ax2idx]) : nothing
         d1, d2, data = amr_plane(snap, iv=iv, x = x, y = y, z = z, span=span, dims=kv[:dims], verbose = verbose > 4 ? 1 : 0)
         verbose > 1 && @info ("Mesh refined data with shape $(size(data))")
     end
@@ -218,9 +218,9 @@ function sliceplot(snap::Dict,
 
     # set axis ticks (position, label)
     xticks = range(1, stop=length(d1), step=round(Int, length(d1)/8))
-    xticks = (xticks |> collect, ceil.(d1[xticks], digits=1)) 
+    xticks = (xticks |> collect, round.(d1[xticks], digits=2)) 
     yticks = range(1, stop=length(d2), step=round(Int, length(d2)/8))
-    yticks = (yticks |> collect, ceil.(d2[yticks], digits=1))
+    yticks = (yticks |> collect, round.(d2[yticks], digits=2))
 
     if !haskey(kw, :aspect_ratio)
         try

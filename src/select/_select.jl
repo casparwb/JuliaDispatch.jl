@@ -69,9 +69,9 @@ function patches_in(snap, span)
     patches = Dict[]
     # println(xspan, " ", yspan, " ", zspan)
     for p in snap["patches"]
-        if ((xspan[1] <= p["extent"][3, 1] && xspan[2] >= p["extent"][3, 2]) &&
-            (yspan[1] <= p["extent"][1, 1] && yspan[2] >= p["extent"][1, 2]) &&
-            (zspan[1] <= p["extent"][2, 1] && zspan[2] >= p["extent"][2, 2]))
+        if ((xspan[1] < p["extent"][3, 1] && xspan[2] > p["extent"][3, 2]) &&
+            (yspan[1] < p["extent"][1, 1] && yspan[2] > p["extent"][1, 2]) &&
+            (zspan[1] < p["extent"][2, 1] && zspan[2] > p["extent"][2, 2]))
             push!(patches, p)
         end
     end
@@ -379,35 +379,37 @@ function plane(patch; iv = 0, x = nothing, y = nothing, z = nothing,
     if patch["guard_zones"] && !all
         li = patch["li"]  # lower inner
         ui = patch["ui"]  # upper inner
+    elseif !patch["guard_zones"] && !all
+        li = patch["ng"] .+ 1#ones(Int, 3)
+        ui = patch["gn"] .- patch["ng"]
     elseif patch["guard_zones"] && all
         li = ones(Int, 3)
         ui = patch["gn"]
-    else
-        li = ones(Int, 3)
-        ui = patch["n"]
     end
 
+    # println(li, " ", ui)
+
     data = box(patch, iv=iv, all=true)
+    # println(size(data))
     if any(map(isone, size(data)))
         idx = findall(isone, size(data))[1]
         return selectdim(data, idx, 1)
     end
 
-    itp = LinearInterpolation((patch["x"], patch["y"], patch["z"]), 
+    itp = LinearInterpolation((patch["x"][li[1]:ui[1]], patch["y"][li[2]:ui[2]], patch["z"][li[3]:ui[3]]), 
                                data, 
-                               extrapolation_bc = Throw())
-
+                               extrapolation_bc = Line())
     if !isnothing(x)
         verbose == 1 && println("plane at x = $x")
-        return itp(x, patch["y"], patch["z"])[li[2]:ui[2], li[3]:ui[3]] # interpolate in x-slice
+        return itp(x, patch["y"][li[2]:ui[2]], patch["z"][li[3]:ui[3]])#[li[2]:ui[2], li[3]:ui[3]] # interpolate in x-slice
 
     elseif !isnothing(y)
         verbose == 1 && println("plane at y = $y")
-        return itp(patch["x"], y, patch["z"])[li[1]:ui[1], li[3]:ui[3]] # interpolate in y-slice
+        return itp(patch["x"][li[1]:ui[1]], y, patch["z"][li[3]:ui[3]])#[li[1]:ui[1], li[3]:ui[3]] # interpolate in y-slice
 
     elseif !isnothing(z)
         verbose == 1 && println("plane at z = $z")
-        return itp(patch["x"], patch["y"], z)[li[1]:ui[1], li[2]:ui[2]] # interpolate in z-slice
+        return itp(patch["x"][li[1]:ui[1]], patch["y"][li[2]:ui[2]], z)#[li[1]:ui[1], li[2]:ui[2]] # interpolate in z-slice
     end
 end
 

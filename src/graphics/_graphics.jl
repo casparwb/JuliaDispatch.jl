@@ -2,8 +2,6 @@ using Plots, LaTeXStrings, ProgressBars, Printf
 using JuliaDispatch.Utils, JuliaDispatch.Buffers, JuliaDispatch.Select, JuliaDispatch.Dispatch
 using Latexify, LaTeXStrings
 
-default(:size, (800, 600))
-
 
 """ 
     plot_values_along(snap::Dict, pt::Array=[0.5, 0.5, 0.5]; iv = 0, dir = 1, verbose = 0, kw...)
@@ -21,6 +19,7 @@ julia> plot_values_along(snap, [0.0, 1.0, 2.0], iv="ekin", title="Kinetic Energy
 ```
 """
 function plot_values_along(snap::Dict, pt=[0.5, 0.5, 0.5]; iv = 0, dir = 1, verbose = 0, kw...)
+    default(:size, (800, 600))
     kw = Dict(kw)
 1
 
@@ -45,10 +44,51 @@ function plot_values_along(snap::Dict, pt=[0.5, 0.5, 0.5]; iv = 0, dir = 1, verb
 
     if !haskey(kw, :title)
         time = round(snap["time"], digits=2)
-        title!(plt, "time = $time | pt = $pt")
+        title!(plt, "t = $time @ pt = $pt")
     end
     
     return plt
+end
+
+
+"""
+    plot_time_evolution(snaps::Vector; iv = 0, all=false, domain_average=true, kw...)
+
+Plot the time evolution of quantity `iv` from a vector of parsed snapshots. If `domain_average` is `true`, the
+quantity will be averaged over the domain (divided by the number of cells). Accepts any keyword
+argument supported by `Plots.plot`.
+"""
+function plot_time_evolution(snaps; iv = 0, all=false, domain_average=true, kw...)
+
+    avg = Vector{Float64}(undef, length(snaps))
+
+    domain_avg(x) = domain_average ? sum(x)/length(x) : sum(x)
+    Base.Threads.@threads for idx in eachindex(snaps)
+        for patch in snaps[idx]["patches"]
+            data = patch["var"](iv, all=all)
+            avg[idx] += domain_avg(data)
+        end
+    end
+
+    if !isnothing(get(kw, :yscale, nothing))
+        avg[findall(avg .<= eps())] .+= sqrt(eps())
+    end
+
+    times = [snap["time"] for snap in snaps]
+    plot(times, avg, xlabel="Time", ylabel=latexify(iv), label=false; kw...)
+end
+
+"""
+    plot_time_evolution(;data="data", run="", iv = 0, all=false, domain_average=true, tspan=nothing, kw...)
+
+Plot the time evolution of quantity `iv` from snapshots in the given `data/run` folder. If `tspan` is given,
+only snapshots within the given time span will be used. If `domain_average` is `true`, the
+quantity will be averaged over the domain (divided by the number of cells). Accepts any keyword
+argument supported by `Plots.plot`.
+"""
+function plot_time_evolution(;data="data", run="", iv = 0, all=false, domain_average=true, tspan=nothing, kw...)
+    snaps = get_snapshots(data=data, run=run, tspan=tspan)
+    plot_time_evolution(snaps, iv=iv, all=all, domain_average=domain_average, kw...)
 end
 
 
@@ -64,7 +104,7 @@ julia> histogram_along(snap, [13.4, 20.5, -15.0], dir=3, iv="d", norm=:pdf, labe
 ```
 """
 function histogram_along(snap::Dict, pt=[0.5, 0.5, 0.5]; iv = 0, dir = 1, verbose = 0, kw...)
-
+    default(:size, (800, 600))
     kw = Dict(kw)
 
     kv = Dict{Symbol, Any}(:verbose => 0,
@@ -130,6 +170,7 @@ function sliceplot(snap::Dict,
                   ;x = nothing, y = nothing, z = nothing, unigrid=true,
                   kw...)
 
+    default(:size, (600, 600))
     kw = Dict{Symbol, Any}(kw)
     if !haskey(kw, :linetype) 
         kw[:linetype] = :heatmap 
@@ -378,161 +419,6 @@ function anim_pane_z(snap, z; iv = 0, nframes = 10, verbose = 0,
 end
 
 
-
-# function volume(snap::Dict; iv = 0, unigrid=true, kw...)
-#     kw = Dict{Symbol, Any}(kw)
-#     if !haskey(kw, :linetype) 
-#         kw[:linetype] = :heatmap 
-#     end
-
-
-#     kv = Dict{Symbol, Any}(:verbose => 0, :iv => 0,
-#                            :grids => false,
-#                            :width => nothing, :dims => nothing,
-#                            :center => nothing, :log =>  x -> x,
-#                            :span => nothing)
-
-
-#     _kw_extract(kw, kv)
-
-    
-#     iv = kv[:iv]
-#     verbose = kv[:verbose]
-
-#     # get the axis where to slice and the resulting plane
-#     xyz = [x, y, z]
-#     dirs = [(x, "x", 1), (y, "y", 2), (z, "z", 3)]
-#     axis = getindex(dirs, xyz .!= nothing)[1]   # axis at which we are slicing
-#     planeDirs = getindex(dirs, xyz .== nothing) # axes of plane
-#     ax1idx, ax2idx = planeDirs[1][3], planeDirs[2][3]
-#     verbose == 1 && @info ("Sliceplot at $(axis[2]) = $(axis[1]) in plane $((planeDirs[1][2], planeDirs[2][2]))")
-    
-#     origin = copy(snap["cartesian"]["origin"])
-#     Size = copy(snap["cartesian"]["size"])
-#     # # deleteat!(Size, axis[3])
-
-#     # check if new width is given
-#     wflag = false
-#     if !isnothing(kv[:width])
-#         width = kv[:width]
-#         verbose == 1 && println("New width: $width")
-#         wflag = true
-#     else
-#         width = [Size[ax1idx], Size[ax2idx]] / 2
-#     end
-
-#     # check if new center is given
-#     cflag = false
-#     if !isnothing(kv[:center])
-#         center = kv[:center]
-#         verbose == 1 && println("New center: $center")
-#         cflag = true
-#     else
-#         center = origin .+ width
-#     end
-
-#     # realign data if new width or center is given
-#     if wflag || cflag
-#         span = ((center[1] - width[1], center[1] + width[1]), 
-#                 (center[2] - width[2], center[2] + width[2]), 
-#                 (center[3] - width[3], center[3] + width[3]))
-#     elseif !isnothing(kv[:span]) 
-#         span = kv[:span]
-#     else 
-#         span = nothing
-#     end
-
-    
-#     if unigrid && isnothing(kv[:dims])
-#         data = unigrid_volume(snap, iv=iv, span=span, verbose=verbose)
-#         verbose > 1 && @info ("Unigrid data with shape $(size(data))")
-#         x = range(center[1]-width[1], center[1]+width[1], length=size(data, 2)) 
-#         y = range(center[2]-width[2], center[2]+width[2], length=size(data, 1)) 
-#         z = range(center[3]-width[3], center[3]+width[3], length=size(data, 3)) 
-
-#     else
-
-#         x, y, z, data = amr_volume(snap, iv=iv, span=span, dims=kv[:dims], verbose=verbose)
-#         verbose > 1 && @info ("Mesh refined data with shape $(size(data))")
-#     end
-
-#     data = @. kv[:log](data)
-
-#     # set colorbar title if not given as a keyword arguments
-#     if !haskey(kw, :cbar_title)
-#         try
-#             cbar_title = latexify("$iv") # latexify only works with specific math equations
-#         catch
-#             cbar_title = L"%$iv" # produces a latexstring, which should work regardless
-#         end
-#     else
-#         cbar_title = L"%$kw[:cbar_title]"
-#     end
-
-#     # set axis ticks (position, label)
-#     xticks = range(1, stop=length(d1), step=round(Int, length(d1)/8))
-#     xticks = (xticks |> collect, ceil.(d1[xticks], digits=1)) 
-#     yticks = range(1, stop=length(d2), step=round(Int, length(d2)/8))
-#     yticks = (yticks |> collect, ceil.(d2[yticks], digits=1))
-
-#     if !haskey(kw, :aspect_ratio)
-#         try
-#             kw[:aspect_ratio] = size(data, 2)/size(data, 1)
-#         catch
-#             kw[:aspect_ratio] = 1.0
-#         end
-#     end
-    
-#     hm = plot(data, xticks=xticks, yticks=yticks, cbar_title=cbar_title; kw...)
-
-#     # add grids
-#     if kv[:grids]
-#         i = axis[3]
-#         patches = patches_in(snap, x=x, y=y, z=z)
-
-#         for p in patches
-#             xidx = ax1idx
-#             yidx = ax2idx
-
-#             e = p["extent"][i,:]
-
-#             x = abs.([e[1], e[2], e[2], e[2], e[2], e[1], e[1], e[1]] ./ Size[xidx] .* size(data, 2))
-#             y = abs.([e[3], e[3], e[3], e[4], e[4], e[4], e[4], e[3]] ./ Size[yidx] .* size(data, 1))
-
-#             if i !== 2
-#                 plot!(hm, x, y, color=:gray, label=false)
-#             else
-#                 plot!(hm, y, x, color=:gray, label=false)
-#             end
-#         end
-#     end
-
-    
-#     # set labels and title if not given as a keyword argument
-#     if !haskey(kw, :xlabel)
-#         xlabel = planeDirs[1][2]
-#         xlabel!(hm, xlabel)
-#     end
-
-#     if !haskey(kw, :ylabel)
-#         ylabel = planeDirs[2][2]
-#         ylabel!(hm, ylabel)
-#     end
-
-#     if !haskey(kw, :title)
-#         pos = (axis[2], axis[1])
-#         time = round(snap["time"], digits=2)
-#         try
-#             title!(latexify("$(pos[1]) = $(pos[2]), t = $time"))
-#         catch
-#             title!(L"$(pos[1]) = $(pos[2]), t = $time")
-#         end
-#     end
-
-
-#     return hm
-# end
-
 """
     anim_plane(;data="../data", run="", x = nothing, y = nothing, z = nothing, iv=0, 
                 tspan=nothing, unigrid=true, step=1, savepath=nothing, verbose = 0, kw...)
@@ -556,8 +442,8 @@ function anim_plane(;data="../data", run="", x = nothing, y = nothing, z = nothi
         start, stop = nothing, nothing
 
         times = get_snapshot_time.(snapIDs, data=data, run=run)
-        start = snapIDs[argmin(abs.(times .- t0))]
-        stop = snapIDs[argmin(abs.(times .- tmax))]
+        start = argmin(abs.(times .- t0))
+        stop = argmin(abs.(times .- tmax))
         snapIDs = snapIDs[start:step:stop]
     else # otherwise use all snapshots
         start = snapIDs[1]

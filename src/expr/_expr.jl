@@ -42,7 +42,21 @@ function evaluate_expression(patch, expr; all=false, verbose = 0)
             end
         end
     catch e
+        if e == OutOfMemoryError() || isa(e, SystemError)
+            GC.gc()
+            try
+                return @eval begin
+                    let patch = $patch 
+                        $parsed
+                    end
+                end
+            catch
+                @error "Unable to parse expression. Out of memory."
+                return nothing
+            end
+        end
         @error "Unable to parse expression $parsed."
+        throw(e)
         return nothing
     end
 

@@ -36,3 +36,8 @@ JuliaDispatch.Dispatch.snapshot
 ```@docs
 JuliaDispatch.Dispatch.cache_snapshots_live
 ```
+
+
+```@docs
+JuliaDispatch.Dispatch.get_snapshots
+```

@@ -46,7 +46,6 @@ function aux_read!(auxDict; verbose=0)
             rank = length(shp)
 
             verbose > 2 && println("type: $tpe")
-
             if startswith(tpe, "r")
                 read(file, (Float32, len))
             else
@@ -56,7 +55,7 @@ function aux_read!(auxDict; verbose=0)
             # v = reshape(v, Int.(shp)...)
 
             vars[name] = Dict("type" => tpe, "name" => name, "rank" => rank,
-                                "shape" => shp, "v" => nothing, "pos" => pos)
+                                "shape" => tuple(shp...), "v" => nothing, "pos" => pos)
             pos += 1
         catch e
             break
@@ -77,11 +76,13 @@ function aux_mem(name, patch)
 
     file = FortranFile(patch["aux"]["filename"])
 
+    # offset = 2+4+4*var["rank"]+2+6
     for i = 1:pos*5
         read(file)
     end
 
     data = read(file, (tpe, prod(shape)))
+    # data = Mmap.mmap(patch["aux"]["filename"], Array{tpe, var["rank"]}, shape, offset)
     close(file)
 
     data = reshape(data, Int.(shape)...)

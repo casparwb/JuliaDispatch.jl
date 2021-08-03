@@ -165,7 +165,6 @@ function amr_plane(snap; iv = 0, x = nothing, y = nothing, z = nothing,
     for iv in keys(buffer)
         Base.Threads.@threads for patchID in eachindex(patches)
             patch = patches[patchID]
-            
   
             axis1extent = patch["extent"][axIdx,:][extentids[1][1]:extentids[1][2]]#patch[dir1s]#[li[dir1]:ui[dir1]]
             axis2extent = patch["extent"][axIdx,:][extentids[2][1]:extentids[2][2]]#patch[dir2s]#[li[dir2]:ui[dir2]]
@@ -173,8 +172,8 @@ function amr_plane(snap; iv = 0, x = nothing, y = nothing, z = nothing,
             axis1_indices = findall(axis1extent[1] .<= axis1 .<= axis1extent[2]) # indices extended by patch in plane axis 1
             axis2_indices = findall(axis2extent[1] .<= axis2 .<= axis2extent[2]) # indices extended by patch in plane axis 2
 
-            data = plane(patch, x = x, y = y, z = z, iv=iv, all=false)
-            itp = LinearInterpolation((LinRange(axis1extent[1], axis1extent[2], size(data, 1)), 
+            data = plane(patch, x = x, y = y, z = z, iv=iv, all=all)
+            itp = CubicSplineInterpolation((LinRange(axis1extent[1], axis1extent[2], size(data, 1)), 
                                        LinRange(axis2extent[1], axis2extent[2], size(data, 2))), 
                                        data, extrapolation_bc=Throw())
 
@@ -266,7 +265,7 @@ function amr_volume(snap; iv::Union{Int, Array, String} = 0, all = false,
             z_ids = findall(z_extent[1] .<= z .<= z_extent[end])
 
             data = box(patch, iv=iv, verbose=verbose, all=false)
-            itp = LinearInterpolation((LinRange(x_extent[1], x_extent[2], size(data,1)), 
+            itp = CubicSplineInterpolation((LinRange(x_extent[1], x_extent[2], size(data,1)), 
                                        LinRange(y_extent[1], y_extent[2], size(data,2)), 
                                        LinRange(z_extent[1], z_extent[2], size(data,3))), 
                                        data, 

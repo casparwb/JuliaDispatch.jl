@@ -38,10 +38,6 @@ The function `histogram_along` computes and plots a histogram of a quantity `iv`
 JuliaDispatch.Graphics.histogram_along
 ```
 
-## `volume`
-
-work in progress
-
 ## `anim_plane`
 
 To produce a time-evolution animation of given quantity in a 2D plane, use the `anim_plane` function. This function accepts any keyword arguments accepted by `sliceplot`, in addition to the `tspan` keyword argument which can be a tuple of numbers denoting at which time (which snapshot) to start and end the simulation. Additionally, the `step` keyword arguments defines whether to use all snapshots or to skip with a given `step` value.
@@ -56,4 +52,10 @@ If you want animate a pane through the computational domain in a certain directi
 
 ```@docs
 JuliaDispatch.Graphics.anim_pane
+```
+
+## `plot_time_evolution`
+
+```@docs
+JuliaDispatch.Graphics.plot_time_evolution
 ```

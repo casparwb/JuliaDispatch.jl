@@ -214,10 +214,10 @@ namelists for faster loading of snapshots later.
  Will wait for `sleeptime` seconds to look again if no new snapshot is found. If program waits for more than
 `maxsleep` seconds without finding a new snapshot, the program will exit.
 """
-function cache_snapshots_live(;data="data/", run="", current_snap=0, sleeptime=10, maxsleep=100, npatches=nothing)
+function cache_snapshots_live(;data="data/", run="", current_snap=0, sleeptime=10, maxsleep=100)
     while true
         snap = get_new_snapshot(current_snap, data=data, run=run, sleeptime=sleeptime, 
-                                              maxsleep=maxsleep, npatches=npatches)
+                                              maxsleep=maxsleep)
         if isnothing(snap)
             break
         else
@@ -225,4 +225,48 @@ function cache_snapshots_live(;data="data/", run="", current_snap=0, sleeptime=1
         end
     end
     return nothing
+end
+
+
+
+function get_all_snapshots(;data=data, run=run)
+
+    snapIDs = get_snapshot_ids(data=data, run=run)
+    snapshots = Vector{Dict}(undef, length(snapIDs))
+
+    for idx in ProgressBar(eachindex(snapIDs))
+        snapshots[idx] = snapshot(snapIDs[idx], data=data, run=run, progress=false, suppress=true)  
+    end
+
+    return snapshots
+end
+
+
+"""
+    get_snapshots(;data=data, run=run, tspan=nothing)
+
+Returns a vector of parsed snapshots in the given  `data/run` folder. If `tspan` is given, only
+snapshots with `tspan[1] <= "time" <= tspan[2]` will be parsed and returned.
+"""
+function get_snapshots(;data=data, run=run, tspan=nothing)
+
+    if isnothing(tspan) 
+        return get_all_snapshots(data=data, run=run) 
+    else
+        start, stop = tspan
+        snapIDs = get_snapshot_ids(data=data, run=run)
+        times = get_snapshot_time(snapIDs, data=data, run=run)
+
+        indices = findall(start .<= times .<= stop)
+
+        snapIDs = snapIDs[indices]
+
+        snapshots = Vector{Dict}(undef, length(snapIDs))
+
+        for idx in ProgressBar(eachindex(snapIDs))
+            snapshots[idx] = snapshot(snapIDs[idx], data=data, run=run, progress=false, suppress=true)  
+        end
+
+        return snapshots
+    end
 end

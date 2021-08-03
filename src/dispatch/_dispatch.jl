@@ -70,7 +70,7 @@ function snapshot(iout=0; run="", data="../data", progress=true, suppress=false,
         file = _file(datadir, f)
         nml_list = read_nml(file, verbose=verbose, suppress=suppress)
         statedict["nml_list"] = nml_list
-        _add_nml_list_to(statedict, nml_list)
+        _add_nml_list_to(statedict, nml_list, suppress=suppress)
 
         if haskey(nml_list, "idx_nml")#"idx_nml" in keys(nml_list)
             idx_dict = nml_list["idx_nml"]
@@ -186,8 +186,6 @@ function snapshot(iout=0; run="", data="../data", progress=true, suppress=false,
     #     end
 
     end # if
-
-    datashape[1] = maximum([patch["corner_indices"][3, 2] for patch in statedict["patches"]])
 
     statedict["datashape"] = datashape
 
@@ -661,11 +659,11 @@ function _var(patch, filed, snap; verbose = 0, copy = nothing)
                     ng2[i] = gn[i] - patch["n"][i]
                 end
 
-                ng = ng2 ÷ 2
+                ng = ng2 .÷ 2
                 n = patch["n"]
                 l = ng
                 u = l + n
-                return v[l[1]:u[1],l[2]:u[2],l[3]:u[3]]
+                return v[l[1] + 1:u[1],l[2]+1:u[2],l[3]+1:u[3]]
             else
                 return v
             end

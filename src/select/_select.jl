@@ -89,32 +89,47 @@ Return `s, f(s)` with `s` the coordinates and `f` the values in the `iv`
 slot of data, taken along the direction v -- so far restricted
 to axis values
 """
-function values_in(p, point = [0.5,0.5,0.5];
+function values_in(patch, point = [0.5,0.5,0.5];
                     dir = 1, iv = 0, i4 = 1, var = nothing, verbose = 0, all = false)
 
 
     ss, ff = [], []
 
-    ii, w = indices_and_weights(p, point, iv)
-    data = p["var"](iv, i4=i4, all=all, verbose=verbose)
+    ii, w = indices_and_weights(patch, point, iv)
+    data = patch["var"](iv, i4=i4, all=all, verbose=verbose)
 
     # +1 because of julia 1-indexing
-    ione = (0, 1)[(p["gn"][1] > 1) + 1]
-    jone = (0, 1)[(p["gn"][2] > 1) + 1]
-    kone = (0, 1)[(p["gn"][3] > 1) + 1]
+    ione = (0, 1)[(patch["gn"][1] > 1) + 1]
+    jone = (0, 1)[(patch["gn"][2] > 1) + 1]
+    kone = (0, 1)[(patch["gn"][3] > 1) + 1]
 
 
-    if !p["guard_zones"] || !all
-        m = @SVector ones(Int32, 3)
-        n = p["n"]
+    if !patch["guard_zones"] || !all
+        m = ones(Int, 3)
+        n = patch["n"]
     elseif all
-        m = @SVector ones(Int32, 3)
-        n = p["gn"]
+        m = ones(Int, 3)
+        n = patch["gn"]
     end
 
 
+    # if patch["guard_zones"] && !all
+    #     m = patch["li"]  # lower inner
+    #     n = patch["ui"]  # upper inner
+    # elseif !patch["guard_zones"] && !all
+    #     m = patch["ng"] .+ 1#ones(Int, 3)
+    #     n = patch["gn"] .- patch["ng"]
+    # elseif patch["guard_zones"] && all
+    #     m = ones(Int, 3)
+    #     n = patch["gn"]
+    # else
+    #     m = ones(Int, 3)
+    #     n = patch["n"]
+    # end
+
+
     if typeof(var) <: String
-        iv = p["idx"]["dict"][var]
+        iv = patch["idx"]["dict"][var]
     end
 
     if dir == 1
@@ -126,10 +141,10 @@ function values_in(p, point = [0.5,0.5,0.5];
         f2 = data[i, j, k+kone]*(1 - w[2]) + data[i, j+jone, k+kone]*w[2]
         f  = f1*(1 - w[3]) + f2*w[3]
 
-        if "p1" in keys(p)
-            iv == p["idx"]["p1"] ? push!(ss, p["xs"][i]) : push!(ss, p["x"][i])
+        if "p1" in keys(patch)
+            iv == patch["idx"]["p1"] ? push!(ss, patch["xs"][i]) : push!(ss, patch["x"][i])
         else
-            push!(ss, p["x"][i])
+            push!(ss, patch["x"][i])
         end
         push!(ff, f)
     end
@@ -142,10 +157,10 @@ function values_in(p, point = [0.5,0.5,0.5];
         f1 = data[i, j, k     ]*(1-w[1]) + data[i+ione, j, k     ]*w[1]
         f2 = data[i, j, k+kone]*(1-w[1]) + data[i+ione, j, k+kone]*w[1]
         f  = f1*(1-w[3]) + f2*w[3]
-        if "p2" in keys(p)
-            iv == p["idx"]["p2"] ? push!(ss, p["ys"][j]) : push!(ss, p["y"][j])
+        if "p2" in keys(patch)
+            iv == patch["idx"]["p2"] ? push!(ss, patch["ys"][j]) : push!(ss, patch["y"][j])
         else
-            push!(ss, p["y"][j])
+            push!(ss, patch["y"][j])
         end
         push!(ff, f)
     end
@@ -158,10 +173,10 @@ function values_in(p, point = [0.5,0.5,0.5];
             f1 = data[i, j     , k]*(1-w[1]) + data[i+ione, j     , k]*w[1]
             f2 = data[i, j+jone, k]*(1-w[1]) + data[i+ione, j+jone, k]*w[1]
             f  = f1*(1-w[2]) + f2*w[2]
-        if "p3" in keys(p)
-            iv == p["idx"]["p3"] ? push!(ss, p["zs"][k]) : push!(ss, p["z"][k])
+        if "p3" in keys(patch)
+            iv == patch["idx"]["p3"] ? push!(ss, patch["zs"][k]) : push!(ss, patch["z"][k])
         else
-            push!(ss, p["z"][k])
+            push!(ss, patch["z"][k])
         end
         push!(ff, f)
     end
@@ -169,6 +184,128 @@ function values_in(p, point = [0.5,0.5,0.5];
     end
 
     return ss, ff
+
+end
+
+"""
+    values_in(snap::Dict, point::Array=[0.5, 0.5, 0.5]; dir::Int=1, iv::Union{String, Int}=0, var=nothing,
+    verbose::Int = 0, all::Bool = false)
+
+
+Return `s, f(s)` with `s` the coordinates and `f` the values in the `iv`
+slot of data, taken along the direction v -- so far restricted
+to axis values
+"""
+function values_in2(patch, point = [0.5,0.5,0.5];
+                    dir = 1, iv = 0, i4 = 1, var = nothing, verbose = 0, all = false)
+
+
+    ss, ff = [], []
+
+    ii, w = indices_and_weights(patch, point, iv)
+    data = patch["var"](iv, i4=i4, all=all, verbose=verbose)
+
+    # +1 because of julia 1-indexing
+    ione = (0, 1)[(patch["gn"][1] > 1) + 1]
+    jone = (0, 1)[(patch["gn"][2] > 1) + 1]
+    kone = (0, 1)[(patch["gn"][3] > 1) + 1]
+
+
+    if patch["guard_zones"] && !all
+        li = patch["li"]  # lower inner
+        ui = patch["ui"]  # upper inner
+    elseif !patch["guard_zones"] && !all
+        li = patch["ng"] .+ 1#ones(Int, 3)
+        ui = patch["gn"] .- patch["ng"]
+    elseif patch["guard_zones"] && all
+        li = ones(Int, 3)
+        ui = patch["gn"]
+    else
+        li = ones(Int, 3)
+        ui = patch["n"]
+    end
+
+    if typeof(var) <: String
+        iv = patch["idx"]["dict"][var]
+    end
+
+    x = patch["xs"][li[1]:ui[1]]
+    y = patch["ys"][li[2]:ui[2]]
+    z = patch["zs"][li[3]:ui[3]]
+
+    knots = (LinRange(x[1], x[end], length(x)),
+             LinRange(y[1], y[end], length(y)),
+             LinRange(z[1], z[end], length(z)))
+    return knots
+    itp = CubicSplineInterpolation(knots, data, extrapolation_bc=Throw())
+    
+    if dir == 1
+        return x, itp(x, point[2], point[3])
+    elseif dir == 2
+        return y, itp(point[1],y, point[3])
+    else
+        return z, itp(point[1], point[2], z)
+    end
+
+end
+
+"""
+    values_in(snap::Dict, point::Array=[0.5, 0.5, 0.5]; dir::Int=1, iv::Union{String, Int}=0, var=nothing,
+    verbose::Int = 0, all::Bool = false)
+
+
+Return `s, f(s)` with `s` the coordinates and `f` the values in the `iv`
+slot of data, taken along the direction v -- so far restricted
+to axis values
+"""
+function values_in2d(patch, point = [0.5,0.5,0.5];
+                    dir = 1, iv = 0, i4 = 1, var = nothing, verbose = 0, all = false)
+
+
+    data = patch["var"](iv, i4=i4, all=all, verbose=verbose)
+
+    if patch["guard_zones"] && !all
+        li = patch["li"]  # lower inner
+        ui = patch["ui"]  # upper inner
+    elseif !patch["guard_zones"] && !all
+        li = patch["ng"] .+ 1#ones(Int, 3)
+        ui = patch["gn"] .- patch["ng"]
+    elseif patch["guard_zones"] && all
+        li = ones(Int, 3)
+        ui = patch["gn"]
+    else
+        li = ones(Int, 3)
+        ui = patch["n"]
+    end
+
+    where_one = findall(patch["n"] .== 1)[1]
+    dir == where_one && @error "Size of axis $dir is 1."
+    data = selectdim(data, where_one, 1)
+    
+    x = patch["xs"][li[1]:ui[1]]
+    y = patch["ys"][li[2]:ui[2]]
+    z = patch["zs"][li[3]:ui[3]]
+    axis = [x, y, z]
+    point = copy(point)
+    deleteat!(axis, where_one)
+    deleteat!(point, where_one)
+    
+
+    knots = (LinRange(axis[1][1], axis[1][end], length(axis[1])),
+             LinRange(axis[2][1], axis[2][end], length(axis[2])))
+    itp = CubicSplineInterpolation(knots, data, extrapolation_bc=Throw())
+    
+    if dir == 1
+        return axis[1], itp(axis[1], point[2])
+    elseif dir == 2
+        if where_one == 1
+            return axis[1], itp(axis[1], point[2])
+        else
+            return axis[1], itp(point[1], axis[1])
+        end
+    else
+        return axis[2], itp(point[1], axis[2])
+    end
 
 end
 
@@ -385,6 +522,9 @@ function plane(patch; iv = 0, x = nothing, y = nothing, z = nothing,
     elseif patch["guard_zones"] && all
         li = ones(Int, 3)
         ui = patch["gn"]
+    else
+        li = ones(Int, 3)
+        ui = patch["n"]
     end
 
     # println(li, " ", ui)
@@ -396,20 +536,20 @@ function plane(patch; iv = 0, x = nothing, y = nothing, z = nothing,
         return selectdim(data, idx, 1)
     end
 
-    itp = LinearInterpolation((patch["x"][li[1]:ui[1]], patch["y"][li[2]:ui[2]], patch["z"][li[3]:ui[3]]), 
+    itp = CubicSplineInterpolation((patch["xs"][li[1]:ui[1]], patch["ys"][li[2]:ui[2]], patch["zs"][li[3]:ui[3]]), 
                                data, 
                                extrapolation_bc = Line())
     if !isnothing(x)
         verbose == 1 && println("plane at x = $x")
-        return itp(x, patch["y"][li[2]:ui[2]], patch["z"][li[3]:ui[3]])#[li[2]:ui[2], li[3]:ui[3]] # interpolate in x-slice
+        return itp(x, patch["ys"][li[2]:ui[2]], patch["zs"][li[3]:ui[3]])#[li[2]:ui[2], li[3]:ui[3]] # interpolate in x-slice
 
     elseif !isnothing(y)
         verbose == 1 && println("plane at y = $y")
-        return itp(patch["x"][li[1]:ui[1]], y, patch["z"][li[3]:ui[3]])#[li[1]:ui[1], li[3]:ui[3]] # interpolate in y-slice
+        return itp(patch["xs"][li[1]:ui[1]], y, patch["zs"][li[3]:ui[3]])#[li[1]:ui[1], li[3]:ui[3]] # interpolate in y-slice
 
     elseif !isnothing(z)
         verbose == 1 && println("plane at z = $z")
-        return itp(patch["x"][li[1]:ui[1]], patch["y"][li[2]:ui[2]], z)#[li[1]:ui[1], li[2]:ui[2]] # interpolate in z-slice
+        return itp(patch["xs"][li[1]:ui[1]], patch["ys"][li[2]:ui[2]], z)#[li[1]:ui[1], li[2]:ui[2]] # interpolate in z-slice
     end
 end
 

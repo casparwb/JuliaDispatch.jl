@@ -1,5 +1,5 @@
 
-using Printf
+using Printf, ProgressBars
 using JuliaDispatch.Select
 
 """ 
@@ -45,12 +45,15 @@ end
 
 
 """
-    get_snapshot_time(iout::Int; data="../data", run="")
+    get_snapshot_time(iout; data="../data", run="")
 
 Return the time of snapshot `iout` in the given `data/run`-folder.
 """
-function get_snapshot_time(iout::Int; data="../data", run="")
+function get_snapshot_time(iout; data="../data", run="")
 
+    if !isa(iout, Int)
+        return get_snapshot_times(data=data, run=run)
+    end
     file = joinpath(_dir(data, run), "$(@sprintf("%05d", iout))")*"/snapshot.nml"
     if !isfile(file)
         println("No snapshot file with path $file")
@@ -70,6 +73,25 @@ function get_snapshot_time(iout::Int; data="../data", run="")
 end
 
 """
+    get_snapshot_times(; data="../data", run="")
+
+Return the times of all snapshots in the given `data/run`-folder.
+"""
+function get_snapshot_times(;data="../data", run="")
+
+    snapIDs = get_snapshot_ids(data=data, run=run)
+
+    times = Vector{Float64}(undef, length(snapIDs))
+    for idx in eachindex(snapIDs)
+        times[idx] = get_snapshot_time(snapIDs[idx], data=data, run=run)
+    end
+    
+    return times
+
+end
+
+
+"""
     get_snapshot_ids(;data = "../data", run = "")
 
 Return an array of IDs of all snapshots in the given `data/run`-folder.
@@ -81,13 +103,10 @@ function get_snapshot_ids(;data="../data", run="")
     datadir = _dir(data, run)
     folders = [folder for folder in readdir(datadir) if (isdir(datadir*"$folder") && 
                                                          startswith(folder, "0")  && 
-                                                         "snapshot.nml" in readdir(datadir*"$folder"))]
+                                                         "snapshot.nml" in readdir(datadir*"$folder"))]     
     IDs = zeros(Int, length(folders))
     if nsnaps != length(folders) @warn "nsnaps != length(folders)" end
-    for (i, folder) in enumerate(folders)
-        IDs[i] = parse(Int, folder)
-    end
-
+    IDs = [parse(Int, folder) for folder in folders]
     return IDs
 
 end

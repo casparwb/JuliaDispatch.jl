@@ -1,7 +1,7 @@
 # JuliaDispatch
 
-JuliaDispatch.jl is a package developed for efficient analysis and visualization of simulations run by the Dispatch framework.
+JuliaDispatch.jl is a package developed for efficient analysis and visualization of simulations run by the [Dispatch](https://dispatch.readthedocs.io/en/latest/) framework.
 
 
-[![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://casparwb.github.io/JuliaDispatch.jl/)
+[![Dev](https://img.shields.io/badge/docs-stable-blue.svg)](https://casparwb.github.io/JuliaDispatch.jl/)
 

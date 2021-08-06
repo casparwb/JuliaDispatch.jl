@@ -29,8 +29,7 @@ function plot_values_along(snap::Dict, pt=[0.5, 0.5, 0.5]; iv = 0, dir = 1, verb
 
     _kw_extract(kw, kv)
     pt = Float64.(pt)
-    data = values_along(snap, pt, iv=iv, dir=dir, all=kv[:all], verbose=verbose)
-
+    data = values_along2(snap, pt, iv=iv, dir=dir, all=kv[:all], verbose=verbose)
 
     plt = plot(data, label=kv[:label]; kw...)
 
@@ -167,7 +166,7 @@ julia> sliceplot(snap, iv="d", z=1.0, resample=true, dims=(400, 600)) # resize d
 ```
 """
 function sliceplot(snap::Dict,
-                  ;x = nothing, y = nothing, z = nothing, unigrid=true,
+                  ;x = nothing, y = nothing, z = nothing,
                   kw...)
 
     default(:size, (600, 600))
@@ -233,7 +232,7 @@ function sliceplot(snap::Dict,
     end
 
     
-    if unigrid && isnothing(kv[:dims]) && isnothing(span)
+    if isnothing(kv[:dims]) && isnothing(span)
         data = unigrid_plane(snap, iv=iv, x = x, y = y, z = z, span=span, verbose = verbose > 4 ? 1 : 0)
         verbose > 1 && @info ("Unigrid data with shape $(size(data))")
         d1 = range(center[1]-width[1], center[1]+width[1], length=size(data, 2)) # dimension 1
@@ -241,7 +240,7 @@ function sliceplot(snap::Dict,
     else
         isnothing(kv[:dims]) ? kv[:dims] = (snap["datashape"][ax1idx], snap["datashape"][ax2idx]) : nothing
         d1, d2, data = amr_plane(snap, iv=iv, x = x, y = y, z = z, span=span, dims=kv[:dims], verbose = verbose > 4 ? 1 : 0)
-        verbose > 1 && @info ("Mesh refined data with shape $(size(data))")
+        verbose >= 1 && @info ("Mesh refined data with shape $(size(data))")
     end
 
     data = @. kv[:log](data)
@@ -366,25 +365,25 @@ function anim_pane(snap; ax=1, nframes=10, unigrid=true, iv=0, reverse=false,
     
     verbose == 1 && println("panning through $ax from $(axvals[1]) to $(axvals[end])")
 
-    data = amr_volume(snap, iv=iv, dims=50)
-    vmin, vmax = minimum(data), maximum(data)
-    data = nothing
+    # data = amr_volume(snap, iv=iv, dims=50)
+    # vmin, vmax = minimum(data), maximum(data)
+    # data = nothing
 
     if ax == 1
-        anim_pane_x(snap, axvals, iv = iv, nframes = nframes, unigrid = unigrid, savepath=savepath, time=time, span=span, clims=(vmin, vmax); kw...)
+        anim_pane_x(snap, axvals, iv = iv, nframes = nframes, unigrid = unigrid, savepath=savepath, time=time, span=span; kw...)
     elseif ax == 2
-        anim_pane_y(snap, axvals, iv = iv, nframes = nframes, unigrid = unigrid, savepath=savepath, time=time, span=span, clims=(vmin, vmax); kw...)
+        anim_pane_y(snap, axvals, iv = iv, nframes = nframes, unigrid = unigrid, savepath=savepath, time=time, span=span; kw...)
     else
-        anim_pane_z(snap, axvals, iv = iv, nframes = nframes, unigrid = unigrid, savepath=savepath, time=time, span=span, clims=(vmin, vmax); kw...)
+        anim_pane_z(snap, axvals, iv = iv, nframes = nframes, unigrid = unigrid, savepath=savepath, time=time, span=span; kw...)
     end
 end
 
 """ Wrapper for pane animation in x-direction """
 function anim_pane_x(snap, x; iv = 0, nframes = 10, verbose = 0, 
-                    unigrid=true, savepath=nothing, time=5, clims=nothing, span=nothing, kw...)
+                    savepath=nothing, time=5, clims=nothing, span=nothing, kw...)
 
     anim = @animate for i = ProgressBar(1:length(x))
-        sliceplot(snap, iv=iv, unigrid=unigrid, x=x[i], title = "x = $(round(x[i], digits=2))",
+        sliceplot(snap, iv=iv, x=x[i], title = "x = $(round(x[i], digits=2))",
                   verbose=verbose, clims=clims, span=span; kw...)
     end
 
@@ -394,10 +393,10 @@ end
 
 """ Wrapper for pane animation in y-direction """
 function anim_pane_y(snap, y; iv = 0, nframes = 10, verbose = 0, 
-                     unigrid=true, savepath=nothing, time=5, clims=nothing, span=nothing, kw...)
+                    savepath=nothing, time=5, clims=nothing, span=nothing, kw...)
 
     anim = @animate for i = ProgressBar(1:length(y))
-        sliceplot(snap, iv=iv, unigrid=unigrid, y=y[i], title = "y = $(round(y[i], digits=2))",
+        sliceplot(snap, iv=iv, y=y[i], title = "y = $(round(y[i], digits=2))",
                   verbose=verbose, clims=clims, span=span; kw...)
     end
 
@@ -407,10 +406,10 @@ end
 
 """ Wrapper for pane animation in z-direction """
 function anim_pane_z(snap, z; iv = 0, nframes = 10, verbose = 0,
-                     unigrid=true, savepath=nothing, time=5, clims=nothing, span=nothing, kw...)
+                    savepath=nothing, time=5, clims=nothing, span=nothing, kw...)
 
     anim = @animate for i = ProgressBar(1:length(z))
-        sliceplot(snap, iv=iv, unigrid=unigrid, z=z[i], title = "z = $(round(z[i], digits=2))",
+        sliceplot(snap, iv=iv, z=z[i], title = "z = $(round(z[i], digits=2))",
                   verbose=verbose, clims=clims, span=span; kw...)
     end
 
@@ -421,42 +420,27 @@ end
 
 """
     anim_plane(;data="../data", run="", x = nothing, y = nothing, z = nothing, iv=0, 
-                tspan=nothing, unigrid=true, step=1, savepath=nothing, verbose = 0, kw...)
+                tspan=nothing, step=1, savepath=nothing, verbose = 0, kw...)
 
 Animate a plane of quantity `iv` at a slice `x/y/z`. If `tspan` tuple is not given, all snapshots will be used, otherwise only snapshots
 with time within the given `tspan` will be loaded. A frame will be recorded every `step`, and the resulting animation
 will be saved to `savepath`. 
 """
 function anim_plane(;data="../data", run="", x = nothing, y = nothing, z = nothing, iv=0, 
-                    tspan=nothing, unigrid=true, step=1, savepath=nothing, verbose = 0, kw...)
+                    tspan=nothing, dims=nothing, step=1, savepath=nothing, verbose = 0, kw...)
+
 
     if isnothing(savepath)
-        throw(ArgumentError("savepath can not be nothing. Aborting."))
+        savepath = "$(_dir(run, data))_$iv.gif"
+        @warn "Savepath not given. Saving animation to $savepath"
     end
 
-    snapIDs = sort(get_snapshot_ids(data=data, run=run)) # all snapshot IDs
-
-    # if tspan is given, find the snapshots where time=t0 and time=tmax
-    if !isnothing(tspan)
-        t0, tmax = tspan
-        start, stop = nothing, nothing
-
-        times = get_snapshot_time.(snapIDs, data=data, run=run)
-        start = argmin(abs.(times .- t0))
-        stop = argmin(abs.(times .- tmax))
-        snapIDs = snapIDs[start:step:stop]
-    else # otherwise use all snapshots
-        start = snapIDs[1]
-        stop = snapIDs[end]
-        t0 = get_snapshot_time(start, data=data, run=run)
-        tmax = get_snapshot_time(stop, data=data, run=run)
-    end
+    snapIDs = get_snapshot_ids(data=data, run=run, tspan=tspan) # all snapshot IDs
+    snapIDs = snapIDs[1:step:end]
     
-
     anim = @animate for i in ProgressBar(snapIDs)
         snap = snapshot(i, data=data, run=run, verbose = verbose, progress=false, suppress=true)
-        sliceplot(snap, iv=iv, unigrid=unigrid, x=x, y=y, z=z,
-                  verbose=verbose; kw...)
+        sliceplot(snap, iv=iv, x=x, y=y, z=z, dims=dims, verbose=verbose; kw...)
     end
 
     gif(anim, savepath)

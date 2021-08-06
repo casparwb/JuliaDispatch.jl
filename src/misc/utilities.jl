@@ -45,20 +45,21 @@ end
 
 
 """
-    get_snapshot_time(iout; data="../data", run="")
+    get_snapshot_time(iout=nothing; data="../data", run="")
 
-Return the time of snapshot `iout` in the given `data/run`-folder.
+Return the time of snapshot `iout` in the given `data/run`-folder or all snapshots if `isnothing(iout)`.
 """
-function get_snapshot_time(iout; data="../data", run="")
+function get_snapshot_time(iout=nothing; data="../data", run="", tspan=nothing)
 
     if !isa(iout, Int)
-        return get_snapshot_times(data=data, run=run)
+        return get_snapshot_times(data=data, run=run, tspan=tspan)
     end
     file = joinpath(_dir(data, run), "$(@sprintf("%05d", iout))")*"/snapshot.nml"
     if !isfile(file)
         println("No snapshot file with path $file")
         return nothing
     end
+
     time = nothing
     open(file, "r") do namelist
         for ln in eachline(namelist)
@@ -77,9 +78,9 @@ end
 
 Return the times of all snapshots in the given `data/run`-folder.
 """
-function get_snapshot_times(;data="../data", run="")
+function get_snapshot_times(;data="../data", run="", tspan=nothing)
 
-    snapIDs = get_snapshot_ids(data=data, run=run)
+    snapIDs = get_snapshot_ids(data=data, run=run, tspan=tspan)
 
     times = Vector{Float64}(undef, length(snapIDs))
     for idx in eachindex(snapIDs)
@@ -96,7 +97,9 @@ end
 
 Return an array of IDs of all snapshots in the given `data/run`-folder.
 """
-function get_snapshot_ids(;data="../data", run="")
+function get_snapshot_ids(;data="../data", run="", tspan=nothing)
+
+    !isnothing(tspan) && return get_snapshot_ids(tspan, data=data, run=run)
 
     nsnaps = get_n_snapshots(run=run, data=data)
 
@@ -107,10 +110,27 @@ function get_snapshot_ids(;data="../data", run="")
     IDs = zeros(Int, length(folders))
     if nsnaps != length(folders) @warn "nsnaps != length(folders)" end
     IDs = [parse(Int, folder) for folder in folders]
-    return IDs
+    return sort(IDs)
 
 end
 
+"""
+    get_snapshot_ids(tspan::Tuple; data="../data", run="")
+
+Return an array of IDs of all snapshots in the given `data/run`-folder whose `time ∈ tspan` 
+"""
+function get_snapshot_ids(tspan; data="../data", run="")
+
+    snapIDs = sort(get_snapshot_ids(data=data, run=run)) # all snapshot IDs
+
+    t0, tmax = tspan
+    start, stop = nothing, nothing
+
+    times = get_snapshot_time.(snapIDs, data=data, run=run)
+    start = argmin(abs.(times .- t0))
+    stop = argmin(abs.(times .- tmax))
+    return sort(snapIDs[start:stop])
+end
 
 """
     get_new_snapshot(current_snap; data="data/", run="", sleeptime=10, maxsleep=100)
@@ -163,6 +183,12 @@ function purge_cached_namelists(iout, ;data="data/", run="")
     for entry ∈ readdir(rundir)
         if endswith(entry, ".jld2")
             rm(rundir*entry)
+        end
+    end
+
+    for entry ∈ readdir(_dir(data,run))
+        if endswith(entry, ".jld2")
+            rm(_dir(data,run)*entry)
         end
     end
 end

@@ -2,13 +2,9 @@ module TestExpressionParser
 
     using JuliaDispatch.Dispatch, Test
 
-    println("Testing expression parser (_expr.jl)")
+    @info "Testing expression parser (_expr.jl)"
 
-    isfile("data/orz/data/params.jld") && rm("data/orz/data/params.jld")
-    isfile("data/orz/data/00100/snapshot.jld") && rm("data/orz/data/00100/snapshot.jld")
-    isfile("data/orz/data/00100/patches.jld") && rm("data/orz/data/00100/patches.jld")
-
-    snap = snapshot(100, data="data/orz/data")
+    snap = snapshot(100, data="data/orz/data", suppress=true, progress=false)
 
     expression = "π/4*sqrt(bx^2 + by^2 + bz^2)"
 

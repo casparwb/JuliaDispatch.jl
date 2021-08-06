@@ -58,14 +58,33 @@ function init_buffer(snap, iv, dims, num_dims; dtype=Float32)
 end
 
 """
+    get_plane(snap::Dict; x = nothing, y = nothing, z = nothing,
+              iv = 0, verbose=0, all=false, span = nothing, dims=nothing)
+
+Conveniance function for getting a slice, checks if snapshot is mesh-refined or not and calls
+the appropriate function for stitching together the data.
+"""
+function get_plane(snap::Dict; x = nothing, y = nothing, z = nothing,
+                       iv = 0, verbose=0, all=false, span = nothing, dims=nothing)
+
+    if snap["amr"]
+        dims = isnothing(dims) ? 100 : dims
+        return amr_plane(snap, x=x, y=y, z=z, iv = iv, verbose=verbose, all=all, span = span, dims=dims)
+    else
+        return unigrid_plane(snap, x=x, y=y, z=z, iv = iv, verbose=verbose, all=all, span = span)
+    end
+end
+
+
+"""
     amr_plane(snap::Dict; iv::Union{Int, String}, x::Float, y::Float, z::Float,
-             Log::Bool, dims::Union{Int, Tuple}, verbose=0)
+              dims::Union{Int, Tuple}, all::Bool, span=nothing, verbose=0)
 
 Return a 2D array containing interpolated data of quantity `iv` in a slice `x/y/z` from all patches in a given snapshot. If `dims` is an
-`Int` the resulting array will be of size `(dims, dims)`. If `dims` is a length-2 array, the array will have size `(dims...)`. 
+`Int` the resulting array will be of size `(dims, dims)`. If `dims` is a length-2 tuple, the resulting array will have size `(dims...)`. 
 """
 function amr_plane(snap; iv = 0, x = nothing, y = nothing, z = nothing,
-                   Log = false, dims::Union{Int, Tuple}=100, all=false, span=nothing, verbose=0)
+                   dims::Union{Int, Tuple}=100, all=false, span=nothing, verbose=0)
 
 
     xyz = [x, y, z]
@@ -88,6 +107,12 @@ function amr_plane(snap; iv = 0, x = nothing, y = nothing, z = nothing,
         n1, n2  = dims
     end
 
+    if axIdx == 2
+        extentids = ((3, 4), (1, 2))
+    else
+        extentids = ((1, 2), (3, 4))
+    end
+
 
     patches = patches_in(snap, x=x, y=y, z=z)
     if length(patches) == 0
@@ -96,6 +121,17 @@ function amr_plane(snap; iv = 0, x = nothing, y = nothing, z = nothing,
 
     axis1 = range(origin[1], origin[1]+Size[1], length=n1) # axis in plane axis 1
     axis2 = range(origin[2], origin[2]+Size[2], length=n2) # axis in plane axis 2
+
+    # axis1 = zeros(Float32, n1)
+    # axis2 = zeros(Float32, n2)
+
+    # for p in patches
+    #     ax1ids = p["corner_indices"][axIdx,1:2]
+    #     ax2ids = p["corner_indices"][axIdx,3:4]
+    #     axis1[ax1ids[1]:ax1ids[2]] = range(p["extent"][axIdx,extentids[1][1]], p["extent"][axIdx,extentids[1][2]], length=p["ncell"][dir1]) |> collect
+    #     axis2[ax2ids[1]:ax2ids[2]] = range(p["extent"][axIdx,extentids[2][1]], p["extent"][axIdx,extentids[2][2]], length=p["ncell"][dir2]) |> collect
+    # end
+
     if !isnothing(span)
         axis1_span, axis2_span = span
 
@@ -162,23 +198,29 @@ function amr_plane(snap; iv = 0, x = nothing, y = nothing, z = nothing,
         extentids = ((1, 2), (3, 4))
     end
 
+    axis1 = collect(axis1)
+    axis2 = collect(axis2)
     for iv in keys(buffer)
-        Base.Threads.@threads for patchID in eachindex(patches)
+        for patchID in eachindex(patches)
             patch = patches[patchID]
   
-            axis1extent = patch["extent"][axIdx,:][extentids[1][1]:extentids[1][2]]#patch[dir1s]#[li[dir1]:ui[dir1]]
-            axis2extent = patch["extent"][axIdx,:][extentids[2][1]:extentids[2][2]]#patch[dir2s]#[li[dir2]:ui[dir2]]
+            axis1extent = patch["extent"][axIdx,:][extentids[1][1]:extentids[1][2]]
+            axis2extent = patch["extent"][axIdx,:][extentids[2][1]:extentids[2][2]]
             
+            data = plane(patch, x = x, y = y, z = z, iv=iv, all=all)
             axis1_indices = findall(axis1extent[1] .<= axis1 .<= axis1extent[2]) # indices extended by patch in plane axis 1
             axis2_indices = findall(axis2extent[1] .<= axis2 .<= axis2extent[2]) # indices extended by patch in plane axis 2
 
-            data = plane(patch, x = x, y = y, z = z, iv=iv, all=all)
-            itp = CubicSplineInterpolation((LinRange(axis1extent[1], axis1extent[2], size(data, 1)), 
-                                       LinRange(axis2extent[1], axis2extent[2], size(data, 2))), 
-                                       data, extrapolation_bc=Throw())
+            # break
+            patch_ax1 = LinRange(axis1extent[1], axis1extent[2], size(data, 1))
+            patch_ax2 = LinRange(axis2extent[1], axis2extent[2], size(data, 2))
+
+            itp = CubicSplineInterpolation((patch_ax1, 
+                                            patch_ax2), 
+                                            data, extrapolation_bc=Line())
 
             for i2 ∈ axis2_indices, i1 ∈ axis1_indices
-                buffer[iv][i2, i1] = itp(axis1[i1], axis2[i2])#interp(itp, axis1[i1], axis2[i2]) # interpolate and insert into buffer
+                buffer[iv][i2, i1] = itp(axis1[i1], axis2[i2]) # interpolate and insert into buffer
             end
         end
     end
@@ -241,8 +283,10 @@ function amr_volume(snap; iv::Union{Int, Array, String} = 0, all = false,
             iszero(snap["periodic"][3]) && throw(ArgumentError("axis z is not periodic"))
         end
 
-        extends_beyond && @error "amr_volume does not yet support spans beyond a periodic boundary. Aborting."
-
+        if extends_beyond 
+            throw(ArgumentError("amr_volume does not yet support spans beyond a periodic boundary."))
+        end
+            
         
         x_span, y_span, z_span = span
         x = range(x_span[1], x_span[2], length=nx)
@@ -266,10 +310,10 @@ function amr_volume(snap; iv::Union{Int, Array, String} = 0, all = false,
 
             data = box(patch, iv=iv, verbose=verbose, all=false)
             itp = CubicSplineInterpolation((LinRange(x_extent[1], x_extent[2], size(data,1)), 
-                                       LinRange(y_extent[1], y_extent[2], size(data,2)), 
-                                       LinRange(z_extent[1], z_extent[2], size(data,3))), 
-                                       data, 
-                                       extrapolation_bc=Throw())
+                                            LinRange(y_extent[1], y_extent[2], size(data,2)), 
+                                            LinRange(z_extent[1], z_extent[2], size(data,3))), 
+                                            data, 
+                                            extrapolation_bc=Throw())
 
             @inbounds for iz in z_ids, iy in y_ids, ix in x_ids
                 buffer[iv][iy, ix, iz] = itp(x[ix], y[iy], z[iz])
@@ -294,6 +338,11 @@ and number of cells. Returns a `Dict` if `iv` is a collection, otherwise a `Matr
 function unigrid_plane(snap::Dict; x = nothing, y = nothing, z = nothing,
                       iv = 0, verbose=0, all=false, span = nothing)
 
+    if snap["amr"]
+        @warn "Snapshot is mesh-refined, use amr_plane instead."
+        return nothing
+    end
+
     xyz = [x, y, z]
     ids = [1, 2, 3]
     ax = getindex(ids, xyz .≠ nothing)[1]
@@ -307,17 +356,7 @@ function unigrid_plane(snap::Dict; x = nothing, y = nothing, z = nothing,
     verbose == 2 && println("number of patches: $(length(patches))")
 
     n1, n2 = 0, 0
-    # patchDict = Dict{Int, Tuple{NTuple{4,Int64}, Dict}}()
-    # for p in patches
 
-        # idxs = corner_indices(snap, p, dir=ax)
-
-        # n1 = max(n1, idxs[2])
-        # n2 = max(n2, idxs[4])
-
-        # patchDict[p["id"]] = (idxs, p)
-    # end
-    # datashp = [n1, n2]
     datashp = copy(snap["datashape"])
     deleteat!(datashp, ax)
 
@@ -325,7 +364,7 @@ function unigrid_plane(snap::Dict; x = nothing, y = nothing, z = nothing,
 
     if !isnothing(span)
         span = (span[1] .* 1.0, span[2] .* 1.0)
-        @warn "unigrid_plane does not yet support spans beyond a periodic boundary. Calling amr_plane."
+        @warn "unigrid_plane does not yet support spans. Calling amr_plane."
         return amr_plane(snap, iv=iv, x = x, y = y, z = z, verbose = verbose, all = all, span = span, dims=tuple(datashp...))
     end
 
@@ -366,24 +405,14 @@ number of cells.
 """
 function unigrid_volume(snap; iv = 0, span=nothing, all=false, verbose=0)
 
+    if snap["amr"]
+        @warn "Snapshot is mesh-refined, use amr_volume instead."
+        return nothing
+    end
+
     dims = snap["cartesian"]["dims"]
     patches = snap["patches"]
 
-    
-    # patchDict = Dict{Int, Tuple{NTuple{6, Int64}, Dict}}()
-
-    # nx, ny, nz = 0, 0, 0
-    # for p in patches
-    #     idxs = corner_indices_alll(snap, p)
-
-    #     nx = max(idxs[2], nx)
-    #     ny = max(idxs[4], ny)
-    #     nz = max(idxs[6], nz)
-
-    #     # idxs = tuple(idxs_xy..., idxs_z...)
-    #     patchDict[p["id"]] = (idxs, p)
-    # end
-    
     datashp = snap["datashape"]
     if !isnothing(span)
         span = (span[1] .* 1.0, span[2] .* 1.0, span[3] .* 1.0) # convert to float
@@ -503,71 +532,4 @@ function resample(d1, d2, data::Array{T, 2} where T, newdims)
     end
 
     return nd1, nd2, new_data
-end
-
-"""
-    resample(xs::Array{Float, 1} where T, ys::Array{Float, 1}, zs::Array{Float, 1},
-            data::Array{Float, 3}, newdims::Union{Int, Tuple})
-
-Resize 3d data array to shape defined by newdims. Data is resampled over axis values xs, ys, and zs
-using gridded trilinear interpolation.
-
-Arguments:
---------------
-- `xs::Array{Float, 1}`, axis values along dimension 1
-- `ys::Array{Float, 1}`, axis values along dimension 2
-- `zs::Array{Float, 1}`, axis values along dimension 3
-- `data::Array{Float, 3}`, data to be resampled. Must have `shape == (length(d1), length(d2), length(d3))`
-- `newdims::Union{Int, Tuple}`, shape of resampled data. If `Int`, all dimensions will have
-               same size. If `Tuple`, `size(newdims)` must be 3.
-
-Returns:
---------------
-- `Array{Float, 1}`, resampled axis 1 values
-- `Array{Float, 1}`, resampled axis 2 values
-- `Array{Float, 1}`, resampled axis 3 values
-- `Array{Float, 3}`, resampled data values
-"""
-function resample(xs, ys, zs, data::Array{T, 3} where T, newdims)
-
-    if typeof(newdims) <: Int
-        nx = ny = nz = newdims
-    else
-        nx, ny, nz = newdims
-    end
-
-    nxs = range(xs[1], xs[end], length=nx)
-    nys = range(ys[1], ys[end], length=ny)
-    nzs = range(zs[1], zs[end], length=nz)
-
-    new_data = similar(data, nx, ny, nz)
-
-    itp = Itp.interpolate((xs, ys, zs), data, Itp.Gridded(Itp.Linear()))
-
-    for iz in eachindex(nzs)
-        for iy in eachindex(nys)
-            for ix in eachindex(nxs)
-                new_data[ix, iy, iz] = itp(nxs[ix], nys[iy], nzs[iz])
-            end
-        end
-    end
-
-    return nxs, nzs, nzs, new_data
-end
-
-
-function check_periodicity(snap, span)
-    if length(span) == 2
-        return check_periodicity_2d(snap, span)
-    else
-        return check_periodicity_3d(snap, span)
-    end
-end
-
-function check_periodicity_2d(snap, span)
-
-end
-
-function check_periodicty_3d(snap, span)
-
 end

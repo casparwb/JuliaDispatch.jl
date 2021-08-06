@@ -1,4 +1,5 @@
 using FortranFiles, Printf, Mmap
+using JuliaDispatch.Utils
 
 function aux(;id = 1, io = 0, rundir = "", datadir = "../data", file=nothing,
     verbose = 0)
@@ -9,9 +10,10 @@ function aux(;id = 1, io = 0, rundir = "", datadir = "../data", file=nothing,
     if isfile(file)
         auxDict["filename"] = file
     else
-        auxDict["filename"] = datadir*"/"*rundir*"/$(@sprintf("%05d/%05d", io, id)).aux"
+        auxDict["filename"] = _dir(datadir, rundir)*"$(@sprintf("%05d/%05d", io, id)).aux"
     end
     if isfile(file)
+        verbose == 1 && println("$file is a file.")
         aux_read!(auxDict, verbose=verbose)
     end
     return auxDict
@@ -58,7 +60,12 @@ function aux_read!(auxDict; verbose=0)
                                 "shape" => tuple(shp...), "v" => nothing, "pos" => pos)
             pos += 1
         catch e
-            break
+            if e !== EOFError()
+                @error "Problem with reading $(auxDict["filename"]): $e"
+                break
+            else
+                break
+            end
         end
 
     end

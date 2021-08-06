@@ -24,11 +24,44 @@ function values_along(snap, point=[0.5, 0.5, 0.5];
     ff = Array{Float32}([])
 
     @inbounds for p in patches
-        ss1, ff1 = values_in(p, point, dir=dir, iv=iv, var=var, all=all, verbose=verbose)
+        ss1, ff1 = values_in2(p, point, dir=dir, iv=iv, var=var, all=all, verbose=verbose)
         append!(ss, ss1)
         append!(ff, ff1)
     end
 
+    return ss, ff
+
+end
+
+"""
+    values_along2(snap::Dict, point::Array=[0.5, 0.5, 0.5]; dir::Int=1, iv::Union{String, Int}=0, var=nothing,
+                    verbose::Int = 0, all::Bool = false)
+
+
+Return `s, f(s)` with `s` the coordinates and `f` the values in the `iv`
+slot of data, taken along the direction v -- so far restricted
+to axis values
+"""
+function values_along2(snap, point=[0.5, 0.5, 0.5];
+                    dir=1, iv=0, var=nothing, verbose = 0, all = false)
+                    
+
+    patches = patches_along(snap, point, dir = dir, verbose = verbose)
+
+    if isnothing(patches)
+        throw(ErrorException("no patches found in [$(point[1]), $(point[2]), $(point[3])]"))
+    end
+
+    ss = Array{Float32}(undef, snap["datashape"][dir])
+    ff = Array{Float32}(undef, snap["datashape"][dir])
+
+    idx = 1
+    @inbounds for p in patches
+        ss1, ff1 = values_in2(p, point, dir=dir, iv=iv, var=var, all=all, verbose=verbose)
+        ff[idx:idx+length(ff1) - 1] = ff1
+        ss[idx:idx+length(ss1) - 1] = ss1
+        idx += length(ff1)
+    end
     return ss, ff
 
 end
@@ -98,11 +131,15 @@ function values_in(patch, point = [0.5,0.5,0.5];
     ii, w = indices_and_weights(patch, point, iv)
     data = patch["var"](iv, i4=i4, all=all, verbose=verbose)
 
-    # +1 because of julia 1-indexing
-    ione = (0, 1)[(patch["gn"][1] > 1) + 1]
-    jone = (0, 1)[(patch["gn"][2] > 1) + 1]
-    kone = (0, 1)[(patch["gn"][3] > 1) + 1]
-
+    if patch["guard_zones"]
+        ione = (0, 1)[(patch["gn"][1] > 1 ? 2 : 1)]
+        jone = (0, 1)[(patch["gn"][2] > 1 ? 2 : 1)]
+        kone = (0, 1)[(patch["gn"][3] > 1 ? 2 : 1)]
+    else
+        ione = (0, 1)[(patch["n"][1] > 1 ? 2 : 1)]
+        jone = (0, 1)[(patch["n"][2] > 1 ? 2 : 1)]
+        kone = (0, 1)[(patch["n"][3] > 1 ? 2 : 1)]
+    end
 
     if !patch["guard_zones"] || !all
         m = ones(Int, 3)
@@ -111,21 +148,6 @@ function values_in(patch, point = [0.5,0.5,0.5];
         m = ones(Int, 3)
         n = patch["gn"]
     end
-
-
-    # if patch["guard_zones"] && !all
-    #     m = patch["li"]  # lower inner
-    #     n = patch["ui"]  # upper inner
-    # elseif !patch["guard_zones"] && !all
-    #     m = patch["ng"] .+ 1#ones(Int, 3)
-    #     n = patch["gn"] .- patch["ng"]
-    # elseif patch["guard_zones"] && all
-    #     m = ones(Int, 3)
-    #     n = patch["gn"]
-    # else
-    #     m = ones(Int, 3)
-    #     n = patch["n"]
-    # end
 
 
     if typeof(var) <: String
@@ -229,15 +251,14 @@ function values_in2(patch, point = [0.5,0.5,0.5];
         iv = patch["idx"]["dict"][var]
     end
 
-    x = patch["xs"][li[1]:ui[1]]
-    y = patch["ys"][li[2]:ui[2]]
-    z = patch["zs"][li[3]:ui[3]]
+    x = patch["x"][li[1]:ui[1]]
+    y = patch["y"][li[2]:ui[2]]
+    z = patch["z"][li[3]:ui[3]]
 
     knots = (LinRange(x[1], x[end], length(x)),
              LinRange(y[1], y[end], length(y)),
              LinRange(z[1], z[end], length(z)))
-    return knots
-    itp = CubicSplineInterpolation(knots, data, extrapolation_bc=Throw())
+    itp = CubicSplineInterpolation(knots, data, extrapolation_bc=Line())
     
     if dir == 1
         return x, itp(x, point[2], point[3])
@@ -331,12 +352,12 @@ function indices_and_weights(p::Dict, point = [0.5, 0.5, 0.5], iv = 0)
         iv == p["idx"]["b3"] ? z0 = p["zs"][1] : nothing
     end
 
-    corner = SVector{3, Float32}(x0, y0, z0)
-    weights = SVector{3, Float32}(point .- corner) ./ p["ds"]
-    indices = SVector{3, Int32}(round.(weights))
+    corner = [x0, y0, z0]
+    weights = (point .- corner) ./ p["ds"]
+    indices = round.(Int, weights)
 
     # indices = [max(0, min(p["n"][i] - 2, indices[2])) for i = 1:3]
-    indices = SVector{3, Int32}([max(0, min(p["n"][i] - 2, indices[2])) for i = 1:3] .+ 1)
+    indices = [max(0, min(p["n"][i] - 2, indices[2])) for i = 1:3] .+ 1
 
     # indices .+= 1
 
@@ -413,7 +434,7 @@ function is_inside(p, point; verbose=0)
 
     verbose == 1 && println("""checking in $point is inside patch $(patch["id"])""")
     left = point .>= p["llc_cart"]
-    right = point .<= p["llc_cart"] + p["size"]
+    right = point .<= p["llc_cart"] .+ p["size"]
 
     all(left) && all(right)
 
@@ -465,23 +486,6 @@ function corner_indices_all(snap, patch)
                          i[3]+n[3], i[3]+n[3], i[2]+n[2])
 end
 
-function corner_indices_alll(snap, patch)
-
-
-    i = (patch["position"] .- patch["size"]/2 .- snap["cartesian"]["origin"])./patch["ds"]
-    i = [Int(round(k + 0.5)) for k in i]
-    n = patch["n"][:]
-
-    # if dir >= 1 && dir < 4
-    #     deleteat!(i, dir)
-    #     deleteat!(n, dir)
-    #     return i[1]+1, i[1]+n[1], i[2]+1, i[2]+n[2]
-    # else
-    # end
-    return i[1]+1, i[1]+n[1], i[2]+1, i[2]+n[2], i[3]+1, i[3]+n[3]
-
-end
-
 
 """
 box(patch::Dict; iv::Union{String, Int}, all::Bool, verbose::Int)
@@ -529,28 +533,41 @@ function plane(patch; iv = 0, x = nothing, y = nothing, z = nothing,
 
     # println(li, " ", ui)
 
-    data = box(patch, iv=iv, all=true)
+    data = box(patch, iv=iv, all=all)
     # println(size(data))
     if any(map(isone, size(data)))
         idx = findall(isone, size(data))[1]
         return selectdim(data, idx, 1)
     end
 
-    itp = CubicSplineInterpolation((patch["xs"][li[1]:ui[1]], patch["ys"][li[2]:ui[2]], patch["zs"][li[3]:ui[3]]), 
-                               data, 
-                               extrapolation_bc = Line())
+    # itp = CubicSplineInterpolation((axrange(patch["xs"][li[1]:ui[1]]), axrange(patch["ys"][li[2]:ui[2]]), axrange(patch["zs"][li[3]:ui[3]])), 
+    #                            data, 
+    #                            extrapolation_bc = Line())
+    xaxis = axrange2(patch["extent"][3,1:2], size(data, 1))
+    yaxis = axrange2(patch["extent"][3,3:4], size(data, 2))
+    zaxis = axrange2(patch["extent"][1,3:4], size(data, 3))
+    itp = CubicSplineInterpolation((xaxis, 
+                                    yaxis,
+                                    zaxis), 
+                                    data, 
+                                    extrapolation_bc = Throw())
     if !isnothing(x)
         verbose == 1 && println("plane at x = $x")
-        return itp(x, patch["ys"][li[2]:ui[2]], patch["zs"][li[3]:ui[3]])#[li[2]:ui[2], li[3]:ui[3]] # interpolate in x-slice
+        return itp(x, yaxis, zaxis)#[li[2]:ui[2], li[3]:ui[3]] # interpolate in x-slice
 
     elseif !isnothing(y)
         verbose == 1 && println("plane at y = $y")
-        return itp(patch["xs"][li[1]:ui[1]], y, patch["zs"][li[3]:ui[3]])#[li[1]:ui[1], li[3]:ui[3]] # interpolate in y-slice
+        return itp(xaxis, y, zaxis)#[li[1]:ui[1], li[3]:ui[3]] # interpolate in y-slice
 
     elseif !isnothing(z)
         verbose == 1 && println("plane at z = $z")
-        return itp(patch["xs"][li[1]:ui[1]], patch["ys"][li[2]:ui[2]], z)#[li[1]:ui[1], li[2]:ui[2]] # interpolate in z-slice
+        return itp(xaxis, yaxis, z)#[li[1]:ui[1], li[2]:ui[2]] # interpolate in z-slice
     end
 end
 
 
+axrange(ax) = range(ax[1], ax[end], length=length(ax))
+
+function axrange2(extent, n)
+    return range(extent[1], extent[2], length=n)
+end

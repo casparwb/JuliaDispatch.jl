@@ -1,42 +1,12 @@
-using FFTW, KernelDensity
-using JuliaDispatch.Utils: get_n_snapshots
+# using FFTW, KernelDensity
+using JuliaDispatch.Dispatch
+using JuliaDispatch.Utils
 using JuliaDispatch.Select
-using StaticArrays
+using StaticArrays, ProgressBars
+using Base.Threads
 
-""" WORK IN PROGRESS """
-
-function power_spectrum2d(data; kw...)
-    #kw = Dict(kw)
-    ft2 = abs.(fft(data).^2)
-    shp = size(data)
-
-    k1 = collect(1:shp[2])' .* ones(shp[1])
-    k2 = collect(1:shp[1]) .* ones(shp[2])'
-
-    k = sqrt.(k1.^2 .+ k2.^2)
-
-    a = 2
-    k0 = 1/sqrt(a)
-    k1 = 1/sqrt(a)
-
-    power = Array{Float32, 1}([])
-    kk = similar(power)
-
-    sizehint!(power, shp[1])
-    sizehint!(kk, shp[1])
-
-    while k1 <= shp[1]÷2
-        push!(kk, sqrt(k0*k1))
-
-        w = findall(k0 .< k .<= k1)
-        push!(power, sum(ft2[w]))
-
-        k0 = k1
-        k1 *= a
-    end
-
-    # plot(kk, power, yscale=:log10, xscale=:log10)
-    return kk, power
+function mean(x)
+    return sum(x)/length(x)
 end
 
 """
@@ -44,124 +14,110 @@ end
 
 Average of quantity `iv` over all patches
 """
-function average(snap; iv=0)
+function average(snap; iv=0, all=false)
 
-    f = 0.0
-    vol = 0.0
-    for patch in snap["patches"]
-        data = patch["var"](iv)    # patch data
-        dvol = prod(patch["ds"])   # volume of each cell
-        vol += dvol*prod(size(data))
-        f += dvol*sum(data)
+    data = 0.0
+    vol = 0
+
+    n = all ? "gn" : "n"
+    if nthreads() > 1
+        mydata = zeros(Float64, nthreads())
+        myvol = zeros(Int, nthreads())
+        @threads for patch in snap["patches"]
+            mydata[threadid()] += sum(patch["var"](iv, all=all))# |> sum
+            myvol[threadid()] += patch[n] |> prod
+        end
+        return sum(mydata)/sum(myvol)
+
+    else
+        data = 0.0
+        vol = 0
+        for patch in snap["patches"]
+            data += sum(patch["var"](iv, all=all))# |> sum
+            vol += patch[n] |> prod
+        end
+        return data/vol
     end
-    
-    return f/vol
 end
 
 
 
 """ Horizontal average of iv in direction dir over all times """
-function time_haverage(;iv = 0, run="", data="../data", dir=3,
-                        i4=0, all=false, verbose=0)
+function time_evolution_average(;iv = 0, run="", data="../data",
+                                 i4=0, all=false, verbose=0, tspan=nothing)
 
-    nsnaps = get_n_snapshots(run=run, data=data)
+    times = get_snapshot_time(data=data, run=run, tspan=tspan)
+    snapIDs = get_snapshot_ids(data=data, run=run, tspan=tspan)
 
-    # axVals = Array{Float32, 1}([])
-    times = Array{Float32, 1}(undef, nsnaps)
-
-    snap0 = snapshot(0, run=run, data=data)
-    axVals, hav = horizontal_average(snap0, iv=iv, dir=dir, all=all, i4=i4)
-    havs = Array{Float32, 2}(undef, nsnaps, length(hav))
-    havs[1,:] = hav
-    times[1] = snap0["time"]
-
-    for iout ∈ 1:nsnaps-1
-        snap = snapshot(iout, run=run, data=data)
-        times[iout+1] = snap["time"]
-        havs[iout+1,:] = horizontal_average(snap, iv=iv, dir=dir, all=all, i4=i4)[2]
-        # push!(havs, hav)
+    averages = Vector{Float64}(undef, length(times))
+    for index ∈ ProgressBar(eachindex(times))
+        averages[index] = average(snapshot(snapIDs[index], data=data, run=run, progress=false, suppress=true), iv=iv, all=all)
     end
 
-    return times, axVals, havs
+    return times, averages
+end
+
+function time_evolution_plaverage(;iv = 0, run="", data="../data", dir=3, tspan=nothing,
+                                   all=false, verbose=0, nslices=nothing)
+
+    times = get_snapshot_time(data=data, run=run, tspan=tspan)
+    snapIDs = get_snapshot_ids(data=data, run=run, tspan=tspan)
+
+    verbose == 1 && @info "Time evolution plane average in direction $dir from t=$(times[1]) to t=$(times[end])"
+
+    averages = Vector{Vector{Float32}}(undef, length(times))
+    axes = similar(averages)
+    for index ∈ ProgressBar(eachindex(times))
+        snap = snapshot(snapIDs[index], data=data, run=run, progress=false, suppress=true)
+        axes[index], averages[index] = plaverage(snap, iv=iv, dir=dir, all=all, verbose=verbose, nslices=nslices)
+    end
+
+    if Base.all(length.(axes) .== length(axes[1])) 
+        axes = axes[1] 
+        averages_matrix = Matrix{Float32}(undef, length(axes), length(times))
+        for index in eachindex(times)
+            averages_matrix[:,index] = averages[index]
+        end
+
+        return axes, times, averages_matrix
+    end
+
+    return times, axes, averages
 end
 
 """
-    haver(snap::Dict; iv::Union{Int, String}, dir::Int, i4::Int, all::Bool, Verbose::Int)
+    plaverage(snap; iv=0, dir=3, all=false, nslices=nothing)
 
 Compute and return the average value of quantity `iv` in each plane slice perpendicular
 to direction `dir`.
 
-Arguments:
---------------
-    -
 """
-function haver(snap; iv=0, dir=3, i4=0, all=false, verbose=0)
-    patches = snap["patches"]
-    patch0 = patches[1]
+function plaverage(snap; iv=0, dir=3, all=false, verbose=0, nslices=nothing)
 
-    all ? posVals = "xyz" : posVals = "xyzi"
+    if isnothing(nslices)
+        axis_length = snap["datashape"][dir]
+    else
+        axis_length = nslices
+    end
 
-    xx = Array{Float32, 1}([])
-    h_av = Array{Float32, 1}([])
-    sizehint!(xx, patch0["gn"][dir]*length(patches))
-    sizehint!(h_av, patch0["gn"][dir]*length(patches))
+    verbose == 1 && @info "Plane average in direction $dir with $axis_length slices"
 
-    jv = map_var(patch0, iv)
-    jv == 0 ? jv += 1 : nothing
-    for patch in patches
-        # patch["no_mans_land"] ? es = 0.5 : es = 0.0
-        # if jv == -1
-        #     es += patch["idx"]["h"][dir, end]
-        # else
-        #     es += patch["idx"]["h"][dir, jv]
-        # end
-        all ? n = patch["gn"] : n = patch["n"]
+    axis = range(snap["cartesian"]["origin"][dir], 
+                 snap["cartesian"]["origin"][dir] + snap["cartesian"]["size"][dir],
+                 length=axis_length)
 
-        rr = patch[posVals][dir]
-
-        f = nothing
-        if iv in patch["all_keys"]
-            data = box(patch, iv=iv, all=all)
-            for (i, f) in enumerate(eachslice(data, dims=dir))
-                push!(xx, rr[i])
-                push!(h_av, sum(f)/length(f))
-            end
+    quantity_average = zeros(Float64, length(axis))
+    
+    for index ∈ eachindex(axis)
+        x, y, z = (i == dir ? (axis[index]) : nothing for i = 1:3)
+        patches = patches_in(snap, x=x, y=y, z=z)
+        Base.Threads.@threads for patch in patches
+            data = plane(patch, iv=iv, x=x, y=y, z=z, all=all)
+            quantity_average[index] += sum(data)/length(data)
         end
     end
 
-    # sort the results
-    sortidxs = sortperm(xx)
-    xx = xx[sortidxs]
-    h_av = h_av[sortidxs]
-
-    # harvest (remove repeated values)
-    ss = Array{Float32, 1}([])
-    hh = similar(ss)
-
-    i = 1
-    while i <= length(xx)
-        x0 = xx[i]
-        n = 0
-        ha = 0.0
-        while i <= length(xx) && xx[i] == x0
-            ha += h_av[i]
-            i += 1
-            n += 1
-        end
-        push!(ss, x0)
-        push!(hh, ha/n)
-    end
-
-    return ss, hh
-end
-
-"""
-    haver(data::Array{Float, 3}; dir::Int)
-
-Return horizontal average of `data` in all planes along direction `dir`.
-"""
-function haver(data::Array{T, 3} where T <: Number; dir=3)
-    aver = [sum(slice)/length(slice) for slice in eachslice(data, dims=dir)]
+    return axis, quantity_average
 end
 
 """
@@ -294,54 +250,4 @@ function stacked_density(data::Array{T, 3} where T <: Number;
     else
         return xdata, log10.(density)
     end
-end
-
-
-mean(A) = sum(A)/length(A)
-
-function density2d(snap; iv=0, ax=1, x=nothing, y=nothing, z=nothing, unigrid=false)
-    """
-    Compute the mean density of iv along dimension ax at a slice x/y/z
-    """
-    if unigrid
-        Plane = unigrid_plane(snap, iv=iv, x=x, y=y, z=z)
-    else
-        Plane = amr_plane(snap, iv=iv, x=x, y=y, z=z)'
-    end
-
-    dim = nothing
-    if ax == 1
-        if z != nothing
-            dim = 1
-        elseif y != nothing
-            dim = 1
-        end
-    elseif ax == 2
-        if x != nothing
-            dim = 1
-        elseif z != nothing
-            dim = 2
-        end
-    elseif ax == 3
-        if y != nothing
-            dim = 2
-        elseif x != nothing
-            dim = 2
-        end
-    end
-
-    start = snap["cartesian"]["origin"][ax]
-    xdata = range(start, snap["cartesian"]["size"][ax]+start, length=size(Plane)[dim])
-
-    # ydata = nothing
-    # if dim == 1
-    #     ydata = [sum(Plane[i,:])/length(Plane[i,:]) for i = 1:size(Plane)[1]]
-    # else
-    #     ydata = [sum(Plane[:,i])/length(Plane[:,i]) for i = 1:size(Plane)[2]]
-    # end
-    ydata = [sum(Plane[i,:])/length(Plane[i,:]) for i = 1:size(Plane)[dim]]
-
-    KDE = kde((xdata, ydata))
-
-    return KDE.x, KDE.y, KDE.density
 end

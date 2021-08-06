@@ -1,4 +1,4 @@
-using ForwardDiff: diff
+# using ForwardDiff: diff
 
 """
 Compute the approximate curl given the components of a vector field.
@@ -88,7 +88,7 @@ Output
 - array or array of arrays with gradients along each given dim in dims
   (1d if dims is Number)
 """
-function gradient(F::Array{T, N} where T where N <: Number;
+function gradient(F;
                   dims::Union{Nothing, Int, Array, Tuple}=nothing,
                   spacing::Union{Number, AbstractArray}=1)
 
@@ -107,17 +107,18 @@ function gradient(F::Array{T, N} where T where N <: Number;
 end
 
 
-function _gradient(F::Array{T, N} where T where N <: Number;
+function _gradient(F;
                    dims::Union{Nothing, Int, Array, Tuple}=nothing,
                    spacing::Union{Number, Array, Tuple}=1)
 
     N = nothing
-    if dims == nothing
+    if isnothing(dims)
         N = 1:ndims(F)
     else
         N = dims
     end
-    typeof(N) <: Int ? N = [N] : nothing
+
+    isa(N, Int) ? N = [N] : nothing
     Ndims = length(N)
     Fsize = size(F)
 

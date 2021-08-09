@@ -49,17 +49,12 @@ function snapshot(iout=0; run="", data="../data", progress=true, suppress=false,
         return nothing
     end
 
-    #=
-    statedict (temporary name) is the equivalent of the snapshot class in
-    the python implementation
-    =#
     statedict["datadir"] = datadir
     statedict["rundir"] = rundir
 
     ### add properties from namelist ###
     file = _file(rundir, "params.nml")
 
-    #params_list = read_nml(file)
     statedict["params_list"] = read_nml(file, verbose=verbose, suppress=suppress)
     _add_nml_list_to(statedict, statedict["params_list"], suppress=suppress)
 
@@ -72,7 +67,6 @@ function snapshot(iout=0; run="", data="../data", progress=true, suppress=false,
         return nothing
     end
 
-    # file_dict = []
     @inbounds for f in files
         file = _file(datadir, f)
         nml_list = read_nml(file, verbose=verbose, suppress=suppress)
@@ -85,9 +79,9 @@ function snapshot(iout=0; run="", data="../data", progress=true, suppress=false,
                 idx_dict[k] += 1
             end
 
-            idx = Dict()
-            idx["dict"] = idx_dict
-            idx["vars"] = Dict()
+            idx = Dict{String, Dict}()
+            idx["dict"] = convert(Dict{Union{typeof.(keys(idx_dict))...}, Union{typeof.(values(idx_dict))...}}, idx_dict)
+            idx["vars"] = Dict{Int, String}()
             for (k, v) in idx["dict"]
                 if !(v in keys(idx["vars"]))
                     v > 0 ? idx["vars"][v] = k : nothing
@@ -99,11 +93,8 @@ function snapshot(iout=0; run="", data="../data", progress=true, suppress=false,
             #     statedict["idx"][k] = v
             # end
 
-            # statedict["keys"] = []
-            # for (k, v) in statedict["idx"]["vars"]
-            #     push!(statedict["keys"], k)
-            #     push!(statedict["keys"], v)
-            # end
+            statedict["keys"] = [collect(statedict["idx"]["vars"] |> keys)..., collect(statedict["idx"]["vars"] |> values)...]
+
         end
     end
 
@@ -145,6 +136,9 @@ function snapshot(iout=0; run="", data="../data", progress=true, suppress=false,
 
     datashape = [0, 0, 0]
 
+    amr = get(get(statedict, "refine", Dict()), "on", false)
+    statedict["amr"] = amr
+
     verbose == 1 && @info "Initiating patch parsing"
     Base.Threads.@threads for i in Progress(eachindex(ids))
         id = ids[i]
@@ -152,10 +146,12 @@ function snapshot(iout=0; run="", data="../data", progress=true, suppress=false,
         _add_axes(statedict, p)
         statedict["patches"][i] = p
 
-        datashape[1] = max(datashape[1], p["corner_indices"][3,2])
-        datashape[2] = max(datashape[2], p["corner_indices"][3,4])
-        datashape[3] = max(datashape[3], p["corner_indices"][1,4])
-        
+        if !amr
+            datashape[1] = max(datashape[1], p["corner_indices"][3,2])
+            datashape[2] = max(datashape[2], p["corner_indices"][3,4])
+            datashape[3] = max(datashape[3], p["corner_indices"][1,4])
+        end
+            
         if verbose == 2 && haskey(p, "idx")
             data = p["var"]("d")
             dmax = maximum(data)
@@ -174,14 +170,33 @@ function snapshot(iout=0; run="", data="../data", progress=true, suppress=false,
         end # if
     end # for
 
-
-    statedict["datashape"] = SVector{3, Int}(datashape...)
-
-
+    amr ? nothing : statedict["datashape"] = datashape
+    try
+        convert_dict_type!(statedict)
+    catch e
+        @error e
+    end
     verbose == 1 && @info "Added $(length(statedict["patches"])) patches"
 
     return statedict
 
+end
+
+function convert_dict_type!(dict)
+    for (k, v) in dict
+        if isa(v, Dict)
+
+            if any(isa.(values(v), Dict))
+                dicts = [d for d in values(v) if isa(d, Dict)]
+                for d in dicts
+                    convert_dict_type!(d)
+                end
+            else
+                dict[k] = Dict{typeof(k), Union{typeof.(values(v))...}}(v)
+            end
+
+        end
+    end
 end
 
 """ 
@@ -336,7 +351,7 @@ end
 
 
 function _patch2(id, patch_dict, snap; memmap=1, verbose=0)
-    patch = Dict()
+    patch = Dict{String, Any}()
     patch["id"] = id
     patch["memmap"] = memmap
 

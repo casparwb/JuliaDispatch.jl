@@ -67,7 +67,7 @@ the appropriate function for stitching together the data.
 function get_plane(snap::Dict; x = nothing, y = nothing, z = nothing,
                        iv = 0, verbose=0, all=false, span = nothing, dims=nothing)
 
-    if snap["amr"]
+    if snap["amr"] || !isnothing(dims)
         dims = isnothing(dims) ? 100 : dims
         return amr_plane(snap, x=x, y=y, z=z, iv = iv, verbose=verbose, all=all, span = span, dims=dims)
     else
@@ -83,7 +83,7 @@ end
 Return a 2D array containing interpolated data of quantity `iv` in a slice `x/y/z` from all patches in a given snapshot. If `dims` is an
 `Int` the resulting array will be of size `(dims, dims)`. If `dims` is a length-2 tuple, the resulting array will have size `(dims...)`. 
 """
-function amr_plane(snap; iv = 0, x = nothing, y = nothing, z = nothing,
+function amr_plane(snap; iv = 0, x = nothing, y = nothing, z = nothing, with_axes=false,
                    dims::Union{Int, Tuple}=100, all=false, span=nothing, verbose=0)
 
 
@@ -122,15 +122,6 @@ function amr_plane(snap; iv = 0, x = nothing, y = nothing, z = nothing,
     axis1 = range(origin[1], origin[1]+Size[1], length=n1) # axis in plane axis 1
     axis2 = range(origin[2], origin[2]+Size[2], length=n2) # axis in plane axis 2
 
-    # axis1 = zeros(Float32, n1)
-    # axis2 = zeros(Float32, n2)
-
-    # for p in patches
-    #     ax1ids = p["corner_indices"][axIdx,1:2]
-    #     ax2ids = p["corner_indices"][axIdx,3:4]
-    #     axis1[ax1ids[1]:ax1ids[2]] = range(p["extent"][axIdx,extentids[1][1]], p["extent"][axIdx,extentids[1][2]], length=p["ncell"][dir1]) |> collect
-    #     axis2[ax2ids[1]:ax2ids[2]] = range(p["extent"][axIdx,extentids[2][1]], p["extent"][axIdx,extentids[2][2]], length=p["ncell"][dir2]) |> collect
-    # end
 
     if !isnothing(span)
         axis1_span, axis2_span = span
@@ -201,7 +192,7 @@ function amr_plane(snap; iv = 0, x = nothing, y = nothing, z = nothing,
     axis1 = collect(axis1)
     axis2 = collect(axis2)
     for iv in keys(buffer)
-        for patchID in eachindex(patches)
+        Base.Threads.@threads for patchID in eachindex(patches)
             patch = patches[patchID]
   
             axis1extent = patch["extent"][axIdx,:][extentids[1][1]:extentids[1][2]]
@@ -219,16 +210,16 @@ function amr_plane(snap; iv = 0, x = nothing, y = nothing, z = nothing,
                                             patch_ax2), 
                                             data, extrapolation_bc=Line())
 
-            for i2 ∈ axis2_indices, i1 ∈ axis1_indices
+            @inbounds for i2 ∈ axis2_indices, i1 ∈ axis1_indices
                 buffer[iv][i2, i1] = itp(axis1[i1], axis2[i2]) # interpolate and insert into buffer
             end
         end
     end
 
     if length(keys(buffer)) == 1
-        return axis1, axis2, collect(values(buffer))[1]
+        return with_axes ? (axis1, axis2, collect(values(buffer))[1]) : collect(values(buffer))[1]
     else
-        return axis1, axis2, buffer
+        return with-axes ? (axis1, axis2, buffer) : buffer
     end
 
 end

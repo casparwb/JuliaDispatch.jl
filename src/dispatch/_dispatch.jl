@@ -8,36 +8,32 @@ include("dispatch_utils.jl")
 include("../expr/_expr.jl")
 
 """
-    snapshot(iotu::Int; run::String, data::String, verbose::Int)
+    snapshot(iout::Int; run::String, data::String, progress::Bool=true, suppress::Bool=false,
+             verbose::Int, copy::Bool=false, memmap::Int=1)
 
-Parses patches and returns a `Dict` with all properties of snapshot `iout`.
-
-#Arguments:
-- `iout::Int`, snapshot ID
-
-#Kwargs:
-- `data::String`, path to data (snapshots), default `"..\\data"`
-- `run::String`, path to snapshots folders relative to data, default `""`
+Parses patches and return a `Dict` with all properties of snapshot `iout` in the given `data/dir`-folder. 
+Will display patch parsing progress unless `progress` is set to `false`. 
 
 """
-function snapshot(iout=0; run="", data="../data", progress=true, suppress=false, verbose = 0, copy = false, memmap = 1)
+function snapshot(iout=0; run="", data="../data", progress=true, suppress=false, 
+                  verbose = 0, copy = false, memmap = 1)
 
 
-    ### find data- and rundirs ###
     statedict = Dict{String, Any}()
+                  ### find data- and rundirs ###
     rundir = _dir(data, run)
     if !isdir(rundir)
-        throw(ArgumentError("Directory $(rundir) does not exist."))
+        @error ArgumentError("Directory $(rundir) does not exist.")
         return nothing
     end
 
     statedict["copy"] = copy
 
-    #datadir = _dir(rundir, "$(@sprintf("%05d", iout))")
-    datadir = joinpath(rundir, "$(@sprintf("%05d", iout))")
+    datadir = _dir(rundir, "$(@sprintf("%05d", iout))")
+    # datadir = joinpath(rundir, "$(@sprintf("%05d", iout))")
 
     if !isdir(datadir)
-        throw(ArgumentError("Directory $(datadir) does not exist."))
+        @error ArgumentError("Directory $(datadir) does not exist.")
         return nothing
     end
 
@@ -48,12 +44,12 @@ function snapshot(iout=0; run="", data="../data", progress=true, suppress=false,
     file = _file(rundir, "params.nml")
 
     statedict["params_list"] = read_nml(file, verbose=verbose, suppress=suppress)
-    _add_nml_list_to(statedict, statedict["params_list"], suppress=suppress)
+    _add_nml_list_to(statedict, statedict["params_list"], verbose=verbose)
 
     ### finding snapshot files ###
     files = [f for f in readdir(datadir) if endswith(f, "snapshot.nml")]
 
-    !suppress && @info "Number of snapshot.nml files in $datadir: $(length(files))"
+    verbose > -1 && @info "Number of snapshot.nml files in $datadir: $(length(files))"
     if length(files) == 0
         throw(ArgumentError("Directory $datadir has no snapshot.nml file."))
         return nothing
@@ -63,7 +59,7 @@ function snapshot(iout=0; run="", data="../data", progress=true, suppress=false,
         file = _file(datadir, f)
         nml_list = read_nml(file, verbose=verbose, suppress=suppress)
         statedict["nml_list"] = nml_list
-        _add_nml_list_to(statedict, nml_list, suppress=suppress)
+        _add_nml_list_to(statedict, nml_list, verbose=verbose)
 
         if haskey(nml_list, "idx_nml")#"idx_nml" in keys(nml_list)
             idx_dict = nml_list["idx_nml"]
@@ -265,7 +261,7 @@ function read_nml(file; verbose=0, suppress=false)
                 end
             end
         end
-        verbose > -1 && !suppress && @info "caching metadata to $jldfile"
+        verbose > -1 && @info "caching metadata to $jldfile"
         try
             JLD2.save(jldfile, nml_list)
         catch
@@ -322,7 +318,7 @@ function _file(dir, file)
 end
 
 """ Add all namelists as dictionairy entries """
-function _add_nml_list_to(dict::Dict, nml::Dict; suppress=false)
+function _add_nml_list_to(dict::Dict, nml::Dict; verbose=0)
 
     for (key, nml_dict) in nml
         if key == "snapshot_nml"
@@ -334,7 +330,7 @@ function _add_nml_list_to(dict::Dict, nml::Dict; suppress=false)
 
             dict[name] = Dict{String, Any}()
             if typeof(nml_dict) <: AbstractArray
-                !suppress && @warn "WARNING: more than one $key"
+                verbose > -1 && @warn "WARNING: more than one $key"
                 nml_dict = nml_dict[1]
             end
             _add_nml_to(dict[name], nml_dict)

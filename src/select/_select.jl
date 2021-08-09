@@ -430,11 +430,11 @@ end
 
 Return true/false depending on if `point` is inside `patch`.
 """
-function is_inside(p, point; verbose=0)
+function is_inside(patch, point; verbose=0)
 
-    verbose == 1 && println("""checking in $point is inside patch $(patch["id"])""")
-    left = point .>= p["llc_cart"]
-    right = point .<= p["llc_cart"] .+ p["size"]
+    verbose == 1 && println("""Checking if $point is inside patch $(patch["id"])""")
+    left = point .>= patch["llc_cart"]
+    right = point .<= patch["llc_cart"] .+ patch["size"]
 
     all(left) && all(right)
 

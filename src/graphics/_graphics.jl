@@ -169,17 +169,15 @@ function sliceplot(snap::Dict,
                   ;x = nothing, y = nothing, z = nothing,
                   kw...)
 
-    default(:size, (600, 600))
     kw = Dict{Symbol, Any}(kw)
     if !haskey(kw, :linetype) 
         kw[:linetype] = :heatmap 
     end
 
-
     kv = Dict{Symbol, Any}(:verbose => 0, :iv => 0,
                            :grids => false,
                            :width => nothing, :dims => nothing,
-                           :center => nothing, :log =>  x -> x,
+                           :center => nothing, :transform =>  false,
                            :span => nothing)
 
 
@@ -200,7 +198,6 @@ function sliceplot(snap::Dict,
     origin = copy(snap["cartesian"]["origin"])
     Size = copy(snap["cartesian"]["size"])
     deleteat!(origin, axis[3])
-    # # deleteat!(Size, axis[3])
 
     # check if new width is given
     wflag = false
@@ -239,11 +236,20 @@ function sliceplot(snap::Dict,
         d2 = range(center[2]-width[2], center[2]+width[2], length=size(data, 1)) # dimension 2
     else
         isnothing(kv[:dims]) ? kv[:dims] = (snap["datashape"][ax1idx], snap["datashape"][ax2idx]) : nothing
-        d1, d2, data = amr_plane(snap, iv=iv, x = x, y = y, z = z, span=span, dims=kv[:dims], verbose = verbose > 4 ? 1 : 0)
+        d1, d2, data = amr_plane(snap, iv=iv, x = x, y = y, z = z, span=span, dims=kv[:dims], with_axes=true, verbose = verbose > 4 ? 1 : 0)
         verbose >= 1 && @info ("Mesh refined data with shape $(size(data))")
     end
 
-    data = @. kv[:log](data)
+    default(:size, (600, 600))
+
+    if isa(kv[:transform], Function)
+        try
+            data = @. kv[:transform](data)
+        catch e
+
+            @error "Could not apply $(kv[:transform]) to data: $e"
+        end
+    end
 
     # set colorbar title if not given as a keyword arguments
     if !haskey(kw, :cbar_title)

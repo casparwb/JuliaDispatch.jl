@@ -41,11 +41,16 @@ function average(snap; iv=0, all=false)
 end
 
 
+"""
+    time_evolution_average(;iv = 0, run="", data="../data",
+                            all=false, verbose=0, tspan=nothing)
 
-""" Horizontal average of iv in direction dir over all times """
+Time evolution of quantity `iv` averaged over entire computational domain.
+"""
 function time_evolution_average(;iv = 0, run="", data="../data",
-                                 i4=0, all=false, verbose=0, tspan=nothing)
+                                 all=false, verbose=0, tspan=nothing)
 
+    verbose == 1 && @info "Time evolution average of quantity $iv"
     times = get_snapshot_time(data=data, run=run, tspan=tspan)
     snapIDs = get_snapshot_ids(data=data, run=run, tspan=tspan)
 

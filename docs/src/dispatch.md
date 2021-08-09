@@ -26,7 +26,7 @@ println(patch1["id"])
 
 extracts the first patch and prints its `id`.
 
-The `snapshot` function will by default display a progressbar visualizing the progress in parsing the patches. To disable this, set the keyword argument `progress` to `false`. Additionally, there are certain warnings and other messages which will always be displayed regardless of the `verbose` value. To suppress these messages, which might be useful for when reading in a large number of snapshots at once, set the keyword argument `suppress` to `true`. 
+The `snapshot` function will by default display a progressbar visualizing the progress in parsing the patches. To disable this, set the keyword argument `progress` to `false`. To suppress all printed information, which might be useful for when reading in a large number of snapshots at once, set `verbose` to `-1`. 
 
 ```@docs
 JuliaDispatch.Dispatch.snapshot

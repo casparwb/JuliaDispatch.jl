@@ -16,7 +16,7 @@ pkg> add "https://github.com/casparwb/JuliaDispatch.jl"
 After having installed the packages, exit the package manager with backspace, and type
 
 ```julia
-using JLD, JuliaDispatch
+using JuliaDispatch
 ```
 
 Note that things will be quite slow the first time you add and import a package, in addition to when you call a function. This is due to Julia's precompilation routine, and only happens the first time you call a function.

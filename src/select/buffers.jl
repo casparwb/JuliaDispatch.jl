@@ -9,15 +9,6 @@ using Interpolations
 Initialize a buffer for storing the data. Returns a `Dict` of Arraya if `iv` is a collection, otherwise
 an `Array`.
 
-#Arguments:
-- `snap::Dict`: snapshot
-
-#Kwargs:
-- `iv::Union{String, Int, Collection}` of String/Ints, what quantity(/ies) to extract, default 0
-- `dims::Union{Int, Tuple, Array}`, data size in each dimension. If Int,
-                                    all dimensions will have same length. If Tuple/Array,
-                                    must have length(dims) == ndims.
-- `ndims::Int`: number of dimensions
 """
 function init_buffer(snap, iv, dims, num_dims; dtype=Float32)
 
@@ -58,18 +49,18 @@ function init_buffer(snap, iv, dims, num_dims; dtype=Float32)
 end
 
 """
-    get_plane(snap::Dict; x = nothing, y = nothing, z = nothing,
+    get_plane(snap::Dict; x = nothing, y = nothing, z = nothing, with_axes=false,
               iv = 0, verbose=0, all=false, span = nothing, dims=nothing)
 
 Conveniance function for getting a slice, checks if snapshot is mesh-refined or not and calls
 the appropriate function for stitching together the data.
 """
-function get_plane(snap::Dict; x = nothing, y = nothing, z = nothing,
+function get_plane(snap::Dict; x = nothing, y = nothing, z = nothing, with_axes=false,
                        iv = 0, verbose=0, all=false, span = nothing, dims=nothing)
 
     if snap["amr"] || !isnothing(dims)
         dims = isnothing(dims) ? 100 : dims
-        return amr_plane(snap, x=x, y=y, z=z, iv = iv, verbose=verbose, all=all, span = span, dims=dims)
+        return amr_plane(snap, x=x, y=y, z=z, iv = iv, verbose=verbose, all=all, span = span, dims=dims, with_axes=with_axes)
     else
         return unigrid_plane(snap, x=x, y=y, z=z, iv = iv, verbose=verbose, all=all, span = span)
     end

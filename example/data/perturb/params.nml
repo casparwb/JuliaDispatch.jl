@@ -1,0 +1,309 @@
+ &LOCK_PARAMS
+ ON      = T,
+ VERBOSE =           0,
+ VERBOSE_TIME    =  0.0000000E+00,
+ LOG     = lock  ,
+ TASKS   = T,
+ LINKS   = F,
+ ALTERNATE_TIME  =  0.000000000000000E+000
+ /
+ &IO_PARAMS
+ VERBOSE =           0,
+ DO_DEBUG        = F,
+ DO_TRACE        = F,
+ DO_OUTPUT       = T,
+ DO_FLAGS        = F,
+ DO_VALIDATE     = F,
+ DO_LEGACY       = F,
+ DO_DIRECT       = F,
+ LEVELMAX        =          10,
+ OMP_TRACE       = F,
+ ID_DEBUG        =          -1,
+ METHOD  = legacy          ,
+ RESTART =          -9,
+ FORMAT  =           0,
+ GUARD_ZONES     = F,
+ TIME_DERIVS     =           0,
+ LOG_SENT        =           0,
+ TASK_LOGGING    =           0,
+ NAMELIST_ERRORS = T,
+ NML_VERSION     =           1,
+ LOG_INTERVAL    =   5.00000000000000     ,
+ TOP     = ../../                                                                                                                  ,
+ DATADIR = data                                                                                                                    
+ /
+ &TIMER_PARAMS
+ SEC_PER_REPORT  =   10.0000000000000     ,
+ MIN_FRACTION    =  5.0000002E-04,
+ VERBOSE =           0,
+ DETAILED        = F
+ /
+ &MPI_MESG_PARAMS
+ EVERY_SEND      =           2,
+ RESEND  = F,
+ MAX_FAIL        =           3,
+ TEST_TIME       =  2.0000000E-02,
+ UNIQ_MESG       = T,
+ DEBUG   = F,
+ VERBOSE =           0,
+ DETAILED_TIMER  = F
+ /
+ &SCALING_NML
+ L       =   1.000000    ,
+ T       =   1.000000    ,
+ D       =   1.000000    
+ /
+ &EOS_PARAMS
+ GAMMA   =   1.40000000000000     ,
+ DO_RT   = F,
+ KAPPA   =  0.0000000E+00
+ /
+ &DOWNLOAD_PARAMS
+ ORDER_INTERPOLATOR      =          -1,
+ ORDER_TIME      =           1,
+ CHECK_FILLED    = F,
+ USE_PROLONG     = different           ,
+ USE_RESTRICT    = different_restrict  ,
+ USE_SAME        = same                ,
+ SORTED  = F,
+ USE_LOCKS       = T,
+ ID_DEBUG        =           0,
+ DETAILED_TIMER  = F,
+ VERBOSE =           0
+ /
+ &GUARD_ZONE_PARAMS
+ METHOD  = simple,
+ DETAILED_TIMER  = F,
+ VERBOSE =           0
+ /
+ &REMESH_PARAMS
+ VERBOSE =           0,
+ ORDER   =           0
+ /
+ &DISPATCHER_PARAMS
+ METHOD  =           0,
+ VERBOSE =           0,
+ TEST    = F,
+ TEST_SECONDS    =   30.0000000000000     
+ /
+ &DISPATCHER0_PARAMS
+ VERBOSE =           0,
+ MAX_STALLED     =   600.000000000000     ,
+ RETRY_STALLED   =   30.0000000000000     ,
+ DO_DELAY        = T,
+ DELAY_MS        =  0.0000000E+00,
+ MPI_ONLY_MASTER =         100,
+ DEBUG   = F,
+ DETAILED_TIMER  = F,
+ NSTALL1 =        1000,
+ NSTALL2 =       10000,
+ EXTRA_GRACE     =  0.3000000    ,
+ OMP_PICK        = T
+ /
+ &RESTART_PARAMS
+ FROM_DIR        = data/perturb-01/                                                                                                  
+       ,
+ SNAPSHOT        =          -1,
+ METHOD  = amr             ,
+ VERBOSE =           0
+ /
+ &CARTESIAN_PARAMS
+ SIZE    = 2*1.00000000000000        ,  0.170000000000000     ,
+ POSITION        = 2*0.000000000000000E+000  ,  8.500000000000001E-002,
+ DIMS    = 2*6,           1,
+ MPI_DIMS        = 3*1,
+ PER_RANK        = 2*3,           1,
+ ORIGIN  = 2*-0.500000000000000      ,  0.000000000000000E+000,
+ FACE_NBORS      = F,
+ OMP_INIT        = T,
+ PERIODIC        = 3*T,
+ VERBOSE =           0
+ /
+ &TASK_LIST_PARAMS
+ VERBOSE =           0,
+ JOB_SECONDS     =  1.000000000000000E+030,
+ DEAD_MANS_HAND  =   60.0000000000000     ,
+ SYNC_TIME       =  0.000000000000000E+000,
+ DETAILED_TIMER  = F,
+ CHECK_NBOR_CONSISTENCY  = T
+ /
+ &MULLIGAN_PARAMS
+ VERBOSE =           0,
+ LEVEL   =           0
+ /
+ &OFFLOAD_PARAMS
+ ON      = F,
+ VERBOSE =           0,
+ BUNCH_SIZE      =         300,
+ INTERVAL        =  0.100000001490116     
+ /
+ &HALO_PARAMS
+ VERBOSE =           0,
+ DETAILED_TIMER  = F,
+ CHECK_FILLED    = F,
+ METHOD  =           3
+ /
+ &INTERP_PARAMS
+ VERBOSE =           0,
+ DETAILED_TIMER  = F
+ /
+ &GUARDS_PARAMS
+ VERBOSE =           0,
+ DETAILED_TIMER  = F
+ /
+ &TASK_PARAMS
+ TRACK_ID        =           0,
+ DO_DUMPS        = F,
+ DUMP_ALL        = F,
+ VERBOSE =           0
+ /
+ &INITIAL_REFINE_PARAMS
+ ON      = F,
+ N_REFINE        = 3*0,
+ CENTER  = 3*0.000000000000000E+000  ,
+ EXTENT  = 3*0.000000000000000E+000  ,
+ RATIO   =   2.00000000000000     ,
+ KEEP_PARENT     = T
+ /
+ &PATCH_PARAMS
+ N       = 2*32,           1,
+ NV      =           8,
+ NT      =           5,
+ U_FIXED =  -1.000000    ,
+ DT_FIXED        =  -1.00000000000000     ,
+ GRACE   =  0.1000000    ,
+ NO_MANS_LAND    = T,
+ USE_DATA_HUB    = F,
+ DO_CHECK_NAN    = T,
+ ZERO_ORDER_EXTRAP       = T,
+ LIMIT_DTIME     = F,
+ COURANT_RAMP    = F
+ /
+ &OUT_PARAMS
+ START_TIME      =  0.000000000000000E+000,
+ OUT_TIME        =  5.000000000000000E-002,
+ END_TIME        =   10.0500000000000     ,
+ PRINT_TIME      =  0.000000000000000E+000,
+ PRINT_EVERY     =           0,
+ MAX_FILES       =        1000
+ /
+ &IC_PARAMS
+ IDIRECT =           3,
+ D1      =   1.000000    ,
+ D2      =   2.000000    ,
+ VX1     =  0.5000000    ,
+ VX2     = -0.5000000    ,
+ PGAS    =   2.500000    ,
+ AMPL    =  9.9999998E-03
+ /
+ &RAMSES_PARAMS
+ RIEMANN = hlld      ,
+ SLOPE_TYPE      =   3.500000    ,
+ B_SLOPE_TYPE    =           0,
+ U_SLOPE_TYPE    =           0,
+ COURANT_FACTOR  =  0.2500000    ,
+ SMALLR  =  1.0000000E-10,
+ SMALLC  =  1.0000000E-10,
+ ISOTHERMAL      = F,
+ CSOUND  =   1.000000    ,
+ DETAILED_TIMER  = F,
+ UNSIGNED        = T,
+ COURANT_TYPE    =           0,
+ MAX_DLOGD       =   20.00000    ,
+ N_DUMP  =           0,
+ DO_TEMPERATURE  = F,
+ VERBOSE =           0,
+ DO_CORNERS      = T
+ /
+ &DIVB_CLEAN_PARAMS
+ ON      = F,
+ DIVB_CLEANER    =           0,
+ DIVB_ITER       =           4
+ /
+ &AUX_PARAMS
+ VERBOSE=         0,
+ SELECT='tt', 'pg', 'rkap', 'src', 'qout', 
+/
+ &LAGRANGE_PARAMS
+ VERBOSE =           0,
+ ORDER   =           2
+ /
+ &TIME_SLICES_PARAMS
+ VERBOSE =           0,
+ ORDER   =           0,
+ ID_DEBUG        =          -1
+ /
+ &COUNTERS_PARAMS
+ VERBOSE =           0
+ /
+ &PDF_IO_PARAMS
+ ON      = F,
+ VERBOSE =           0,
+ OUT_TIME        =  0.100000000000000     ,
+ NBINS   =         111,
+ BIN_MIN =  -12.00000    ,
+ BIN_MAX =   10.00000    
+ /
+ &NON_IDEAL_PARAMS
+ GAMMA_AD        =   75.00000    ,
+ ETA_OHM =  0.1000000    ,
+ ETAMD   =  0.0000000E+00,
+ RHO_IONS        =   1.000000    ,
+ MHD_AD  = F,
+ MHD_OHM = F,
+ NTESTDADM       = T
+ /
+ &VALIDATE_PARAMS
+ VERBOSE =           0,
+ MODE    = off     
+ /
+ &CARTESIAN_PARAMS
+ SIZE    = 2*1.00000000000000        ,  0.170000000000000     ,
+ POSITION        = 2*0.000000000000000E+000  ,  8.500000000000001E-002,
+ DIMS    = 2*6,           1,
+ MPI_DIMS        = 3*1,
+ PER_RANK        = 2*3,           1,
+ ORIGIN  = 2*-0.500000000000000      ,  0.000000000000000E+000,
+ FACE_NBORS      = F,
+ OMP_INIT        = T,
+ PERIODIC        = 3*T,
+ VERBOSE =           0
+ /
+ &REFINE_PARAMS
+ VERBOSE =           3,
+ ON      = F,
+ LEVELMIN        =           1,
+ LEVELMAX        =          12,
+ CHECK_INTERVAL  =           2,
+ RATIO   =           2,
+ REFINE_FROM_T   =  0.0000000E+00,
+ REFINE_UNTIL_T  =  1.0000000E+30,
+ MIN_DX  =  0.0000000E+00,
+ MAX_DX  =  1.0000000E+32,
+ DEREFINE_LIMIT  =  0.8000000    ,
+ MIN_JEANS       =  0.0000000E+00,
+ MAX_SHOCK       =  0.0000000E+00,
+ MIN_SHOCK       =  0.0000000E+00,
+ MAX_CONTACT     =  0.0000000E+00,
+ MIN_CONTACT     =  0.0000000E+00,
+ MAX_GRAD        = 10*0.0000000E+00  ,
+ MIN_GRAD        = 10*0.0000000E+00  ,
+ MAX_VORTICITY   =  0.0000000E+00,
+ MAX_COMPRESS    =  0.0000000E+00,
+ MAX_COMPRESS_LEVEL      =          12,
+ QUADRATURE      = F,
+ GRAD_VAR        =                                                                                                                   
+                                                                                                                                     
+                                                                           ,
+ REGION_LLC      = 3*0.0000000E+00  ,
+ REGION_URC      = 3*0.0000000E+00  ,
+ FORCE_CUBICAL   = F,
+ N_LOCKS =           1,
+ WAIT_REFINE_NSTEPS      =           0,
+ DETAILED_TIMER  = F,
+ DO_DUMP = F
+ /
+ &FLUX_PARAMS
+ ON      = F,
+ VERBOSE =           0
+ /

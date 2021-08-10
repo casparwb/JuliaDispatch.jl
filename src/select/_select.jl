@@ -226,6 +226,7 @@ function values_in2(patch, point = [0.5,0.5,0.5];
 
     ii, w = indices_and_weights(patch, point, iv)
     data = patch["var"](iv, i4=i4, all=all, verbose=verbose)
+    if any(isone.(size(data))) return values_in2d(patch, point, dir=dir, iv=iv, verbose=verbose)
 
     # +1 because of julia 1-indexing
     ione = (0, 1)[(patch["gn"][1] > 1) + 1]

@@ -16,7 +16,8 @@ makedocs(
             "Graphics" => "graphics.md",
             "Select" => "select.md",
             "Buffers" => "buffers.md",
-            "Utils" => "utils.md"]
+            "Utils" => "utils.md",
+            "Analysis" => "analysis.md"]
         )
 
 # Documenter can also automatically deploy documentation to gh-pages.

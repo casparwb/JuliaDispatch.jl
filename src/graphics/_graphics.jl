@@ -437,7 +437,7 @@ function anim_plane(;data="../data", run="", x = nothing, y = nothing, z = nothi
 
 
     if isnothing(savepath)
-        savepath = "$(_dir(run, data))_$iv.gif"
+        savepath = "$iv.gif"
         @warn "Savepath not given. Saving animation to $savepath"
     end
 

@@ -35,7 +35,7 @@ end
 
 p1 = sliceplot(snap, iv="d", z=0, title="""density @ t=$(snap["time"]) @ z=0""", clims=(0.9, 2.1))  # produce a sliceplot of the density at z = 0
 p2 = sliceplot(snap, iv="d", z=0, span=((0, 0.2), (-0.2, 0.0)), clims=(0.9, 2.1)) # plot the density at x ∈ [0.0, 0.2], y ∈ [-0.2, 0.0], z = 0.0
-p3 = plot_values_along(snap, [0.0, 0.1, 0.0], dir=1, iv="d")    # plot the density along the x-axis through (0.0, 0.1, 0.0)
+p3 = plot_values_along(snap, [0.0, 0.1, 0.001], dir=1, iv="d")    # plot the density along the x-axis through (0.0, 0.1, 0.0)
 
 plot(p1, p2, p3, layout=@layout([a b; c]), size=(800, 800))      # combine all three plots into one subplot
 # savefig("density.svg") # save to svg file in current directory

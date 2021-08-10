@@ -29,7 +29,7 @@ function plot_values_along(snap::Dict, pt=[0.5, 0.5, 0.5]; iv = 0, dir = 1, verb
 
     _kw_extract(kw, kv)
     pt = Float64.(pt)
-    data = values_along2(snap, pt, iv=iv, dir=dir, all=kv[:all], verbose=verbose)
+    data = values_along(snap, pt, iv=iv, dir=dir, all=kv[:all], verbose=verbose)
 
     plt = plot(data, label=kv[:label]; kw...)
 
@@ -433,7 +433,7 @@ with time within the given `tspan` will be loaded. A frame will be recorded ever
 will be saved to `savepath`. 
 """
 function anim_plane(;data="../data", run="", x = nothing, y = nothing, z = nothing, iv=0, 
-                    tspan=nothing, dims=nothing, step=1, savepath=nothing, verbose = 0, kw...)
+                    tspan=nothing, dims=nothing, step=1, savepath=nothing, verbose = -1, kw...)
 
 
     if isnothing(savepath)
@@ -445,7 +445,7 @@ function anim_plane(;data="../data", run="", x = nothing, y = nothing, z = nothi
     snapIDs = snapIDs[1:step:end]
     
     anim = @animate for i in ProgressBar(snapIDs)
-        snap = snapshot(i, data=data, run=run, verbose = verbose, progress=false, suppress=true)
+        snap = snapshot(i, data=data, run=run, verbose = verbose, progress=false)
         sliceplot(snap, iv=iv, x=x, y=y, z=z, dims=dims, verbose=verbose; kw...)
     end
 

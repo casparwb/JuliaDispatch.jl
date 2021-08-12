@@ -52,8 +52,8 @@ function evaluate_expression(patch, expr; all=false, verbose = 0)
                 end
             catch
                 @error "Unable to parse expression. Out of memory."
-                return zeros(all ? patch["gn"] : patch["n"])
                 patch["expr"][expr] = nothing
+                return zeros(all ? patch["gn"] : patch["n"])
             end
         end
         @error "Unable to parse expression $parsed."

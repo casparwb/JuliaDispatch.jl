@@ -28,6 +28,7 @@ Must then be equal to `size(F, dim)`.
 """
 function diff_quotient(F; spacing=1, dim=1)
     
+    @assert dim <= ndims(F) "dim = $dim was given, but F has only $(ndims(F)) dimensions."
     all_dims = [size(F)...]
     all_dims[dim] = 1
     quotient = cat(zeros(all_dims...), diff(F, dims=dim), dims=dim)

@@ -10,7 +10,7 @@ using JuliaDispatch.Utils
 
 Read patch metadata from Fortran unformatted file
 """
-function read_patch_metadata(io = 0, run = "", data="../data", n_rank = 0; verbose = 0, suppress=false)
+function read_patch_metadata(io = 0, run = "", data="../data", n_rank = 0; verbose = 0)
     rundir = _dir(data, run)
     if iszero(n_rank)
         dir = rundir*@sprintf("%05d", io)
@@ -221,7 +221,7 @@ function cache_snapshots_live(;data="data/", run="", current_snap=0, sleeptime=1
         if isnothing(snap)
             break
         else
-            current_snap = snapshot(snap, data=data, run=run, progress=false, suppress=true)["iout"]
+            current_snap = snapshot(snap, data=data, run=run, progress=false)["iout"]
         end
     end
     return nothing
@@ -235,7 +235,7 @@ function get_all_snapshots(;data=data, run=run)
     snapshots = Vector{Dict}(undef, length(snapIDs))
 
     for idx in ProgressBar(eachindex(snapIDs))
-        snapshots[idx] = snapshot(snapIDs[idx], data=data, run=run, progress=false, suppress=true)  
+        snapshots[idx] = snapshot(snapIDs[idx], data=data, run=run, progress=false, verbose=-1)  
     end
 
     return snapshots
@@ -264,7 +264,7 @@ function get_snapshots(;data=data, run=run, tspan=nothing)
         snapshots = Vector{Dict}(undef, length(snapIDs))
 
         for idx in ProgressBar(eachindex(snapIDs))
-            snapshots[idx] = snapshot(snapIDs[idx], data=data, run=run, progress=false, suppress=true)  
+            snapshots[idx] = snapshot(snapIDs[idx], data=data, run=run, progress=false, verbose=-1)  
         end
 
         return snapshots

@@ -74,7 +74,14 @@ function plot_time_evolution(snaps; iv = 0, all=false, domain_average=true, kw..
     end
 
     times = [snap["time"] for snap in snaps]
-    plot(times, avg, xlabel="Time", ylabel=latexify(iv), label=false; kw...)
+
+    ylabel = nothing
+    try 
+        ylabel = latexify(iv) 
+    catch 
+        ylabel = "$iv"
+    end
+    plot(times, avg, xlabel="Time", ylabel=ylabel, label=false; kw...)
 end
 
 """
@@ -87,7 +94,7 @@ argument supported by `Plots.plot`.
 """
 function plot_time_evolution(;data="data", run="", iv = 0, all=false, domain_average=true, tspan=nothing, kw...)
     snaps = get_snapshots(data=data, run=run, tspan=tspan)
-    plot_time_evolution(snaps, iv=iv, all=all, domain_average=domain_average, kw...)
+    plot_time_evolution(snaps, iv=iv, all=all, domain_average=domain_average; kw...)
 end
 
 

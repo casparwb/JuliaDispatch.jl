@@ -11,6 +11,7 @@ Open your Julia REPL terminal and type ']' to enter the package manager, followe
 
 ```julia
 pkg> add "https://github.com/casparwb/JuliaDispatch.jl"
+pkg> update
 ```
 
 After having installed the packages, exit the package manager with backspace, and type
@@ -28,6 +29,7 @@ Importing `JuliaDispatch` does not include any functions into your workspace, bu
 * __Buffers__: methods for stitching together patch data into 2- or 3-dimensional arrays, in addition to resampling methods for re-sizing the domain.
 * __Select__: methods for extracting patches and data at given positions in the computational domain.
 * __Utils__:  various QOL tools, such as functions for getting the number of snapshots in a folder, among other things.
+* __Analysis__: a few basic analysis tools such as averages, time-evolution, and gradients.
 
 After having imported `JuliaDispatch`, you can include the functionality of any of these modules by doing
 
@@ -48,6 +50,17 @@ To quickly get the documentation for any function, use the _help_ functionality 
 ```julia
 ?
 snapshot
+```
+
+### Jupyter Setup
+
+If using Jupyter Notebook or similar, do
+
+```julia
+using Pkg
+Pkg.add(url="https://github.com/casparwb/JuliaDispatch.jl/")
+Pkg.update()
+using JuliaDispatch
 ```
 
 ## Functionality

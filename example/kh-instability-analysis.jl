@@ -17,14 +17,14 @@ begin
     using JuliaDispatch.Dispatch, JuliaDispatch.Utils, JuliaDispatch.Graphics, JuliaDispatch.Analysis, JuliaDispatch.Buffers
 end
 
-### Get the snapshots to work with ###
+### Get the snapshot to work with ###
 begin
     data = "data/"      # directory containing data
     rundir = "perturb"     # name of simulation run
 
     snapIDs = get_snapshot_ids(data=data, run=rundir)   # snapshot IDs
     
-    snap = snapshot(0, data=data, run=rundir) # get the first snapshot
+    snap = snapshot(snapIDs[end], data=data, run=rundir); # get the first snapshot
 end
 
 ### Plotting ###

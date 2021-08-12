@@ -16,8 +16,8 @@ Average of quantity `iv` over all patches
 """
 function average(snap; iv=0, all=false)
 
-    data = 0.0
-    vol = 0
+    # data = 0.0
+    # vol = 0
 
     n = all ? "gn" : "n"
     if nthreads() > 1
@@ -30,13 +30,13 @@ function average(snap; iv=0, all=false)
         return sum(mydata)/sum(myvol)
 
     else
-        data = 0.0
-        vol = 0
-        for patch in snap["patches"]
-            data += sum(patch["var"](iv, all=all))# |> sum
-            vol += patch[n] |> prod
-        end
-        return data/vol
+    data = 0.0
+    vol = 0
+    for patch in snap["patches"]
+        data += sum(patch["var"](iv, all=all))# |> sum
+        vol += patch[n] |> prod
+    end
+    return data/vol
     end
 end
 
